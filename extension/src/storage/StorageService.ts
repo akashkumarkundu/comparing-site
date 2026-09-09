@@ -1,13 +1,16 @@
-import type { PageSnapshot, StorageState } from '../models/types';
+import type { ComparisonResult, PageSnapshot, StorageState } from '../models/types';
 
 const STORAGE_KEYS = {
   PAGES: 'ca_selected_pages',
   USER_GOAL: 'ca_user_goal',
   INSTALL_ID: 'ca_install_id',
+  CACHED_RESULT: 'ca_cached_result',
+  API_BASE_URL: 'ca_api_base_url',
 };
 
 const MAX_PAGES = 4;
 const MIN_PAGES = 2;
+export const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000';
 
 function generateGuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -29,6 +32,8 @@ export class StorageService {
         STORAGE_KEYS.PAGES,
         STORAGE_KEYS.USER_GOAL,
         STORAGE_KEYS.INSTALL_ID,
+        STORAGE_KEYS.CACHED_RESULT,
+        STORAGE_KEYS.API_BASE_URL,
       ]);
 
       let installId = data[STORAGE_KEYS.INSTALL_ID];
@@ -41,6 +46,8 @@ export class StorageService {
         pages: data[STORAGE_KEYS.PAGES] || [],
         userGoal: data[STORAGE_KEYS.USER_GOAL] || '',
         installId,
+        cachedResult: data[STORAGE_KEYS.CACHED_RESULT] || null,
+        apiBaseUrl: data[STORAGE_KEYS.API_BASE_URL] || DEFAULT_API_BASE_URL,
       };
     } else {
       // LocalStorage fallback for non-extension preview
@@ -50,10 +57,14 @@ export class StorageService {
         localStorage.setItem(STORAGE_KEYS.INSTALL_ID, installId);
       }
       const rawPages = localStorage.getItem(STORAGE_KEYS.PAGES);
+      const rawResult = localStorage.getItem(STORAGE_KEYS.CACHED_RESULT);
+
       return {
         pages: rawPages ? JSON.parse(rawPages) : [],
         userGoal: localStorage.getItem(STORAGE_KEYS.USER_GOAL) || '',
         installId,
+        cachedResult: rawResult ? JSON.parse(rawResult) : null,
+        apiBaseUrl: localStorage.getItem(STORAGE_KEYS.API_BASE_URL) || DEFAULT_API_BASE_URL,
       };
     }
   }
@@ -81,10 +92,13 @@ export class StorageService {
 
     const updatedPages = [...state.pages, snapshot];
 
+    // Invalidate cached result when pages change
     if (isChromeStorageAvailable) {
       await chrome.storage.local.set({ [STORAGE_KEYS.PAGES]: updatedPages });
+      await chrome.storage.local.remove([STORAGE_KEYS.CACHED_RESULT]);
     } else {
       localStorage.setItem(STORAGE_KEYS.PAGES, JSON.stringify(updatedPages));
+      localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
     }
 
     return { success: true, pages: updatedPages };
@@ -99,8 +113,10 @@ export class StorageService {
 
     if (isChromeStorageAvailable) {
       await chrome.storage.local.set({ [STORAGE_KEYS.PAGES]: updatedPages });
+      await chrome.storage.local.remove([STORAGE_KEYS.CACHED_RESULT]);
     } else {
       localStorage.setItem(STORAGE_KEYS.PAGES, JSON.stringify(updatedPages));
+      localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
     }
 
     return updatedPages;
@@ -118,14 +134,43 @@ export class StorageService {
   }
 
   /**
-   * Clears all comparison pages and goal
+   * Cached comparison result getter and setter
+   */
+  static async getCachedResult(): Promise<ComparisonResult | null> {
+    const state = await this.getState();
+    return state.cachedResult || null;
+  }
+
+  static async setCachedResult(result: ComparisonResult | null): Promise<void> {
+    if (isChromeStorageAvailable) {
+      if (result) {
+        await chrome.storage.local.set({ [STORAGE_KEYS.CACHED_RESULT]: result });
+      } else {
+        await chrome.storage.local.remove([STORAGE_KEYS.CACHED_RESULT]);
+      }
+    } else {
+      if (result) {
+        localStorage.setItem(STORAGE_KEYS.CACHED_RESULT, JSON.stringify(result));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
+      }
+    }
+  }
+
+  /**
+   * Clears all comparison pages, goal, and cached results
    */
   static async clearComparison(): Promise<void> {
     if (isChromeStorageAvailable) {
-      await chrome.storage.local.remove([STORAGE_KEYS.PAGES, STORAGE_KEYS.USER_GOAL]);
+      await chrome.storage.local.remove([
+        STORAGE_KEYS.PAGES,
+        STORAGE_KEYS.USER_GOAL,
+        STORAGE_KEYS.CACHED_RESULT,
+      ]);
     } else {
       localStorage.removeItem(STORAGE_KEYS.PAGES);
       localStorage.removeItem(STORAGE_KEYS.USER_GOAL);
+      localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
     }
   }
 

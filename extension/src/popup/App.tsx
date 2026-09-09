@@ -166,14 +166,11 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Day 1 milestone verification check
-    alert(
-      `🎯 Day 1 Foundation Verified!\n\n` +
-      `Ready to compare ${pages.length} pages:\n` +
-      pages.map((p, i) => `${i + 1}. ${p.title.substring(0, 30)}... (${p.domain})`).join('\n') +
-      `\n\nGoal: ${userGoal || 'General comparison'}\n\n` +
-      `In Day 3, this opens the full-screen Results Page connected to Day 2's AI backend.`
-    );
+    if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('results.html') });
+    } else {
+      window.open('/results.html', '_blank');
+    }
   };
 
   if (loading) {
