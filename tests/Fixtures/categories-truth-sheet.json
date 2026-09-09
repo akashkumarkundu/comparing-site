@@ -1,0 +1,289 @@
+{
+  "categories": {
+    "products": {
+      "name": "Products (Laptops)",
+      "goal": "Best laptop for programming under Tk 80,000",
+      "pages": [
+        {
+          "id": "prod-1",
+          "url": "https://startech.com.bd/asus-vivobook-15",
+          "domain": "startech.com.bd",
+          "title": "ASUS Vivobook 15 X1504VA Core i5 13th Gen 15.6\" Laptop",
+          "description": "Intel Core i5-1335U, 16GB RAM, 512GB SSD",
+          "importantText": "Price: Tk 74,500\nProcessor: Intel Core i5-1335U\nRAM: 16 GB\nStorage: 512 GB NVMe SSD\nDisplay: 15.6\" FHD\nWarranty: 2 years\nWeight: NOT PROVIDED"
+        },
+        {
+          "id": "prod-2",
+          "url": "https://ryans.com/lenovo-ideapad-5",
+          "domain": "ryans.com",
+          "title": "Lenovo IdeaPad Slim 3 15ABR8 AMD Ryzen 7 15.6\" Laptop",
+          "description": "AMD Ryzen 7 7730U, 16GB RAM, 512GB SSD",
+          "importantText": "Price: Tk 78,000\nProcessor: AMD Ryzen 7 7730U\nRAM: 16 GB\nStorage: 512 GB NVMe SSD\nDisplay: 15.6\" FHD\nWarranty: 2 years\nWeight: 1.63 kg"
+        }
+      ],
+      "truthSheet": {
+        "prod-1": {
+          "Price": "Tk 74,500",
+          "RAM": "16 GB",
+          "Warranty": "2 years",
+          "Weight": "Not stated"
+        },
+        "prod-2": {
+          "Price": "Tk 78,000",
+          "RAM": "16 GB",
+          "Warranty": "2 years",
+          "Weight": "1.63 kg"
+        }
+      }
+    },
+    "saas": {
+      "name": "SaaS (Project Management Plans)",
+      "goal": "Cheapest tool for a 10 person agile team",
+      "pages": [
+        {
+          "id": "saas-1",
+          "url": "https://linear.app/pricing",
+          "domain": "linear.app",
+          "title": "Linear Standard Plan Pricing",
+          "description": "Streamlined issue tracking for high-performance product teams",
+          "importantText": "Price: $8 per user/month billed annually\nFile storage: Unlimited file uploads\nIntegrations: GitHub, GitLab, Slack\nUser limit: Unlimited members\nAPI Access: Full GraphQL API\nSLA: NOT PROVIDED"
+        },
+        {
+          "id": "saas-2",
+          "url": "https://atlassian.com/software/jira/pricing",
+          "domain": "atlassian.com",
+          "title": "Jira Standard Plan Pricing",
+          "description": "Issue and project tracking software for agile software teams",
+          "importantText": "Price: $7.75 per user/month\nFile storage: 250 GB storage\nIntegrations: Atlassian ecosystem, Slack\nUser limit: Up to 35,000 users\nAPI Access: REST API\nSLA: 99.9% uptime"
+        }
+      ],
+      "truthSheet": {
+        "saas-1": {
+          "Price": "$8 per user/month",
+          "SLA": "Not stated"
+        },
+        "saas-2": {
+          "Price": "$7.75 per user/month",
+          "File storage": "250 GB storage",
+          "SLA": "99.9% uptime"
+        }
+      }
+    },
+    "jobs": {
+      "name": "Jobs (Engineering Roles)",
+      "goal": "Best job for a senior fullstack engineer prioritizing remote flexibility",
+      "pages": [
+        {
+          "id": "job-1",
+          "url": "https://remoteok.com/remote-jobs/senior-fullstack-dev-acme",
+          "domain": "remoteok.com",
+          "title": "Senior Fullstack Engineer at Acme Corp",
+          "description": "Looking for Laravel and React expert",
+          "importantText": "Role: Senior Fullstack Engineer\nLocation: 100% Remote (Worldwide)\nSalary: $120,000 - $140,000 USD\nTech Stack: PHP 8.4, Laravel, React, TypeScript\nBenefits: 4 weeks PTO, health insurance, annual retreat\nEquity: 0.1% - 0.25%\nVisa Sponsorship: NOT PROVIDED"
+        },
+        {
+          "id": "job-2",
+          "url": "https://weworkremotely.com/jobs/lead-web-developer-globex",
+          "domain": "weworkremotely.com",
+          "title": "Lead Web Developer at Globex",
+          "description": "Lead engineering team for high-traffic apps",
+          "importantText": "Role: Lead Web Developer\nLocation: Remote (US & EU Timezones)\nSalary: Competitive (NOT PROVIDED)\nTech Stack: Node.js, Python, Vue.js\nBenefits: Unlimited vacation, 401k match\nEquity: NOT PROVIDED\nVisa Sponsorship: No"
+        }
+      ],
+      "truthSheet": {
+        "job-1": {
+          "Location": "100% Remote (Worldwide)",
+          "Salary": "$120,000 - $140,000 USD",
+          "Visa Sponsorship": "Not stated"
+        },
+        "job-2": {
+          "Location": "Remote (US & EU Timezones)",
+          "Salary": "Not stated",
+          "Equity": "Not stated",
+          "Visa Sponsorship": "No"
+        }
+      }
+    },
+    "education": {
+      "name": "Education (AI & Programming Courses)",
+      "goal": "Best structured program for beginner in Machine Learning",
+      "pages": [
+        {
+          "id": "edu-1",
+          "url": "https://coursera.org/specializations/machine-learning",
+          "domain": "coursera.org",
+          "title": "Machine Learning Specialization by Andrew Ng",
+          "description": "Master machine learning fundamentals with DeepLearning.AI",
+          "importantText": "Tuition: $49/month subscription\nDuration: 3 months at 10 hours/week\nPrerequisites: Basic Python programming, High school math\nCertificate: Shareable Specialization Certificate\nInstructor: Andrew Ng\nScholarships: Financial aid available\nUniversity Credit: NOT PROVIDED"
+        },
+        {
+          "id": "edu-2",
+          "url": "https://edx.org/course/cs50-introduction-to-ai-python",
+          "domain": "edx.org",
+          "title": "CS50's Introduction to Artificial Intelligence with Python",
+          "description": "Learn to use machine learning in Python in this introductory course",
+          "importantText": "Tuition: Free to audit ($299 for verified certificate)\nDuration: 7 weeks at 10-30 hours/week\nPrerequisites: CS50x or prior Python experience\nCertificate: Verified HarvardX certificate\nInstructor: David J. Malan, Brian Yu\nScholarships: NOT PROVIDED\nUniversity Credit: Eligible for Harvard credit with registration"
+        }
+      ],
+      "truthSheet": {
+        "edu-1": {
+          "Tuition": "$49/month",
+          "Scholarships": "Financial aid available",
+          "University Credit": "Not stated"
+        },
+        "edu-2": {
+          "Tuition": "Free to audit ($299 for certificate)",
+          "Scholarships": "Not stated",
+          "University Credit": "Eligible for Harvard credit"
+        }
+      }
+    },
+    "services": {
+      "name": "Services (Cloud VPS Hosting)",
+      "goal": "Fastest and most affordable hosting for a Laravel application",
+      "pages": [
+        {
+          "id": "srv-1",
+          "url": "https://digitalocean.com/pricing/droplets",
+          "domain": "digitalocean.com",
+          "title": "DigitalOcean Basic Droplet",
+          "description": "Reliable virtual machines with SSD storage",
+          "importantText": "Price: $6 / month ($0.009 / hour)\nCPU: 1 vCPU\nRAM: 1 GB\nStorage: 25 GB NVMe SSD\nBandwidth: 1000 GB transfer\nData Centers: NYC, SFO, LON, FRA, SGP\nAutomated Backups: 20% of Droplet cost ($1.20/mo)\nDDoS Protection: NOT PROVIDED"
+        },
+        {
+          "id": "srv-2",
+          "url": "https://aws.amazon.com/lightsail/pricing",
+          "domain": "aws.amazon.com",
+          "title": "AWS Lightsail Virtual Server",
+          "description": "Easy-to-use virtual private server with AWS infrastructure",
+          "importantText": "Price: $5 / month\nCPU: 2 vCPU\nRAM: 1 GB\nStorage: 40 GB SSD\nBandwidth: 2000 GB transfer\nData Centers: 14 AWS global regions\nAutomated Backups: Available at $0.05/GB/mo\nDDoS Protection: Included with AWS Shield"
+        }
+      ],
+      "truthSheet": {
+        "srv-1": {
+          "Price": "$6 / month",
+          "RAM": "1 GB",
+          "DDoS Protection": "Not stated"
+        },
+        "srv-2": {
+          "Price": "$5 / month",
+          "RAM": "1 GB",
+          "DDoS Protection": "Included with AWS Shield"
+        }
+      }
+    },
+    "articles": {
+      "name": "Articles (Technical Architecture Comparison)",
+      "goal": "Understand trade-offs between monolithic and microservices architectures",
+      "pages": [
+        {
+          "id": "art-1",
+          "url": "https://martinfowler.com/articles/monolith-first.html",
+          "domain": "martinfowler.com",
+          "title": "Monolith First by Martin Fowler",
+          "description": "Why starting with a monolith is almost always the right choice",
+          "importantText": "Title: Monolith First\nAuthor: Martin Fowler\nDate: 2015\nMain Thesis: Don't start with microservices even if you are certain your application will be big enough. Start with a monolith, keep it modular, and split once boundaries are clear.\nTrade-offs Discussed: Operational complexity, deployment speed, debugging ease.\nPerformance Benchmarks: NOT PROVIDED"
+        },
+        {
+          "id": "art-2",
+          "url": "https://microservices.io/patterns/monolithic.html",
+          "domain": "microservices.io",
+          "title": "Pattern: Monolithic Architecture by Chris Richardson",
+          "description": "An architectural pattern that structures an application as a single deployable unit",
+          "importantText": "Title: Pattern: Monolithic Architecture\nAuthor: Chris Richardson\nDate: 2021\nMain Thesis: Monolithic architectures simplify development and end-to-end testing early on, but maintenance and deployment friction grows exponentially as team size expands.\nTrade-offs Discussed: Team autonomy, technology lock-in, scaling bottlenecks.\nPerformance Benchmarks: NOT PROVIDED"
+        }
+      ],
+      "truthSheet": {
+        "art-1": {
+          "Author": "Martin Fowler",
+          "Performance Benchmarks": "Not stated"
+        },
+        "art-2": {
+          "Author": "Chris Richardson",
+          "Performance Benchmarks": "Not stated"
+        }
+      }
+    },
+    "threePages": {
+      "name": "3-Page Scale Comparison (Laptops)",
+      "goal": "Best laptop under Tk 80,000",
+      "pages": [
+        {
+          "id": "p-1",
+          "url": "https://startech.com.bd/asus-vivobook-15",
+          "domain": "startech.com.bd",
+          "title": "ASUS Vivobook 15",
+          "importantText": "Price: Tk 74,500\nProcessor: Core i5-1335U\nRAM: 16 GB\nStorage: 512 GB\nWeight: NOT PROVIDED"
+        },
+        {
+          "id": "p-2",
+          "url": "https://ryans.com/lenovo-ideapad-5",
+          "domain": "ryans.com",
+          "title": "Lenovo IdeaPad 5",
+          "importantText": "Price: Tk 78,000\nProcessor: Ryzen 7 7730U\nRAM: 16 GB\nStorage: 512 GB\nWeight: 1.63 kg"
+        },
+        {
+          "id": "p-3",
+          "url": "https://startech.com.bd/hp-pavilion-15",
+          "domain": "startech.com.bd",
+          "title": "HP Pavilion 15",
+          "importantText": "Price: Tk 81,500\nProcessor: Core i5-1335U\nRAM: 8 GB\nStorage: 512 GB\nWeight: 1.59 kg"
+        }
+      ]
+    },
+    "fourPages": {
+      "name": "4-Page Scale Comparison (Laptops Maximum Supported)",
+      "goal": "Best laptop under Tk 85,000",
+      "pages": [
+        {
+          "id": "p-1",
+          "url": "https://site1.com/asus",
+          "domain": "site1.com",
+          "title": "ASUS Vivobook 15",
+          "importantText": "Price: Tk 74,500. RAM: 16GB."
+        },
+        {
+          "id": "p-2",
+          "url": "https://site2.com/lenovo",
+          "domain": "site2.com",
+          "title": "Lenovo IdeaPad 5",
+          "importantText": "Price: Tk 78,000. RAM: 16GB."
+        },
+        {
+          "id": "p-3",
+          "url": "https://site3.com/hp",
+          "domain": "site3.com",
+          "title": "HP Pavilion 15",
+          "importantText": "Price: Tk 81,500. RAM: 8GB."
+        },
+        {
+          "id": "p-4",
+          "url": "https://site4.com/dell",
+          "domain": "site4.com",
+          "title": "Dell Inspiron 15",
+          "importantText": "Price: Tk 84,000. RAM: 16GB."
+        }
+      ]
+    },
+    "noWinnerCase": {
+      "name": "Ambiguous / Inconclusive Evidence (No Clear Winner)",
+      "goal": "Which option is objectively superior?",
+      "pages": [
+        {
+          "id": "unknown-1",
+          "url": "https://example1.com/product-x",
+          "domain": "example1.com",
+          "title": "Product Alpha",
+          "importantText": "Details coming soon. Contact sales for information."
+        },
+        {
+          "id": "unknown-2",
+          "url": "https://example2.com/product-y",
+          "domain": "example2.com",
+          "title": "Product Beta",
+          "importantText": "Beta testing in progress. Pricing and specs not finalized."
+        }
+      ]
+    }
+  }
+}
