@@ -113,13 +113,13 @@ export function extractPageInTabDOM(): {
     clone.querySelectorAll(sel).forEach((el) => el.remove());
   });
 
-  // 5. Structured Data Collection (Tables, Specs, DLs)
+  // 5. Structured Data Collection (Tables, Specs, DLs, eCommerce Key-Values)
   const structuredSections: string[] = [];
 
-  // 5a. Tables (e.g. specification tables)
+  // 5a. Tables (e.g. specification tables) - extract up to 60 rows
   const tables = clone.querySelectorAll('table');
   tables.forEach((table) => {
-    const rows = Array.from(table.querySelectorAll('tr')).slice(0, 15);
+    const rows = Array.from(table.querySelectorAll('tr')).slice(0, 60);
     const tableLines: string[] = [];
     rows.forEach((tr) => {
       const cells = Array.from(tr.querySelectorAll('th, td'))
@@ -134,7 +134,41 @@ export function extractPageInTabDOM(): {
     }
   });
 
-  // 5b. Definition lists (<dl>, <dt>, <dd>)
+  // 5b. Modern eCommerce Key-Value Attribute Pairs (e.g. Ryans, Daraz, StarTech, BestBuy)
+  const titleElements = clone.querySelectorAll(
+    '[class*="att-title"], [class*="attr-title"], [class*="spec-title"], [class*="spec-name"], [class*="prop-name"], [class*="property-name"], [class*="label-title"]'
+  );
+  const customAttrLines: string[] = [];
+  titleElements.forEach((titleEl) => {
+    const key = titleEl.textContent?.replace(/\s+/g, ' ').trim() || '';
+    if (!key) return;
+
+    let val = '';
+    let curr: HTMLElement | null = titleEl.parentElement;
+    let depth = 0;
+    while (curr && depth < 4 && curr !== clone) {
+      const valEl = curr.querySelector(
+        '[class*="att-value"], [class*="attr-value"], [class*="spec-value"], [class*="prop-val"], [class*="property-value"]'
+      );
+      if (valEl && valEl !== titleEl) {
+        val = valEl.textContent?.replace(/\s+/g, ' ').trim() || '';
+        break;
+      }
+      curr = curr.parentElement;
+      depth++;
+    }
+
+    if (key && val && key !== val && key.length < 80 && val.length < 200) {
+      customAttrLines.push(`${key}: ${val}`);
+    }
+  });
+
+  if (customAttrLines.length > 0) {
+    const uniqueAttrs = Array.from(new Set(customAttrLines));
+    structuredSections.push(uniqueAttrs.slice(0, 60).join('\n'));
+  }
+
+  // 5c. Definition lists (<dl>, <dt>, <dd>)
   const dls = clone.querySelectorAll('dl');
   dls.forEach((dl) => {
     const dts = dl.querySelectorAll('dt');
@@ -152,7 +186,7 @@ export function extractPageInTabDOM(): {
     }
   });
 
-  // 5c. Spec-like lists (elements with spec, attribute, detail classes)
+  // 5d. Spec-like lists (elements with spec, attribute, detail classes)
   const specContainers = clone.querySelectorAll(
     '[class*="spec"], [class*="feature"], [class*="attribute"], [class*="detail"], [id*="spec"]'
   );
@@ -166,7 +200,7 @@ export function extractPageInTabDOM(): {
       }
     });
     if (specLines.length > 0) {
-      structuredSections.push(specLines.slice(0, 10).join('\n'));
+      structuredSections.push(specLines.slice(0, 20).join('\n'));
     }
   });
 
@@ -189,8 +223,8 @@ export function extractPageInTabDOM(): {
     }
   });
 
-  // 8. Intelligent Truncation & Prioritization (~3,500 chars limit)
-  // Priority: Tables/Specs > Headings > Description > Body text
+  // 8. Intelligent Truncation & Prioritization (~5,000 chars limit)
+  // Priority: Specifications/Tables/Attributes > Headings > Description > Body text
   let finalImportantText = '';
 
   const tableBlock = structuredSections.join('\n\n');
@@ -198,24 +232,24 @@ export function extractPageInTabDOM(): {
   const bodyBlock = paragraphs.slice(0, 8).join('\n\n');
 
   if (tableBlock) {
-    finalImportantText += `[SPECIFICATIONS & TABLES]\n${tableBlock}\n\n`;
+    finalImportantText += `[SPECIFICATIONS & ATTRIBUTES]\n${tableBlock}\n\n`;
   }
 
-  if (headingsBlock && finalImportantText.length < 2500) {
+  if (headingsBlock && finalImportantText.length < 3500) {
     finalImportantText += `[KEY SECTIONS]\n${headingsBlock}\n\n`;
   }
 
-  if (description && finalImportantText.length < 3000) {
+  if (description && finalImportantText.length < 4000) {
     finalImportantText += `[SUMMARY]\n${description}\n\n`;
   }
 
-  if (bodyBlock && finalImportantText.length < 3200) {
+  if (bodyBlock && finalImportantText.length < 4500) {
     finalImportantText += `[OVERVIEW]\n${bodyBlock}\n`;
   }
 
-  // Cap at ~3,500 characters
-  if (finalImportantText.length > 3500) {
-    finalImportantText = finalImportantText.substring(0, 3500) + '... [truncated]';
+  // Cap at ~5,000 characters
+  if (finalImportantText.length > 5000) {
+    finalImportantText = finalImportantText.substring(0, 5000) + '... [truncated]';
   }
 
   return {
