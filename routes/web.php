@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\Admin\MetricsController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 Route::view('/privacy', 'privacy')->name('privacy');
 Route::view('/support', 'support')->name('support');
 Route::view('/truth-sheet', 'truth-sheet')->name('truth-sheet');
+Route::get('/admin/metrics', [MetricsController::class, 'index'])->name('admin.metrics');
 
 Route::get('/download-extension', function () {
     $zipPath = base_path('extension/compare-anything-extension.zip');

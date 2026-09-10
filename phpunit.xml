@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="DAILY_COMPARISON_LIMIT" value="10"/>
+        <env name="HOURLY_IP_COMPARISON_LIMIT" value="30"/>
     </php>
 </phpunit>

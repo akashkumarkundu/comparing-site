@@ -14,7 +14,11 @@ import {
   Layers,
   Sparkles,
   HelpCircle,
+  Share2,
+  Image as ImageIcon,
+  X,
 } from 'lucide-react';
+import { ShareImageGenerator } from '../utils/ShareImageGenerator';
 import './results.css';
 
 export const ResultsApp: React.FC = () => {
@@ -32,6 +36,10 @@ export const ResultsApp: React.FC = () => {
   const [detectStatus, setDetectStatus] = useState<string | null>(null);
   const [editingGoal, setEditingGoal] = useState<boolean>(false);
   const [newGoalInput, setNewGoalInput] = useState<string>('');
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [imageCopied, setImageCopied] = useState<boolean>(false);
+  const [downloadingImg, setDownloadingImg] = useState<boolean>(false);
 
   useEffect(() => {
     runComparison(false);
@@ -130,6 +138,40 @@ export const ResultsApp: React.FC = () => {
     setUserGoal(clean);
     setEditingGoal(false);
     runComparison(true);
+  };
+
+  const handleOpenShareModal = () => {
+    if (!result) return;
+    try {
+      const canvas = ShareImageGenerator.generateCanvas(result);
+      setPreviewDataUrl(canvas.toDataURL('image/png'));
+      setShowShareModal(true);
+    } catch (err) {
+      console.error('Failed to generate share preview image:', err);
+    }
+  };
+
+  const handleDownloadPng = async () => {
+    if (!result) return;
+    try {
+      setDownloadingImg(true);
+      await ShareImageGenerator.downloadPng(result);
+    } catch (err) {
+      console.error('Failed to download PNG:', err);
+    } finally {
+      setDownloadingImg(false);
+    }
+  };
+
+  const handleCopyImage = async () => {
+    if (!result) return;
+    const success = await ShareImageGenerator.copyImageToClipboard(result);
+    if (success) {
+      setImageCopied(true);
+      setTimeout(() => setImageCopied(false), 2500);
+    } else {
+      alert('Could not copy image directly to clipboard on this browser. You can click "Download PNG" instead!');
+    }
   };
 
   const handleCopyComparison = async () => {
@@ -341,6 +383,15 @@ export const ResultsApp: React.FC = () => {
             <button className="btn" onClick={handleDownloadCSV} title="Download spreadsheet CSV">
               <Download size={14} />
               <span>Download CSV</span>
+            </button>
+
+            <button
+              className="btn btn-primary"
+              onClick={handleOpenShareModal}
+              title="Download clean shareable PNG image & post to social media (PDF Section 44)"
+            >
+              <Share2 size={14} />
+              <span>Share as Image</span>
             </button>
 
             <button className="btn" onClick={() => runComparison(true)} title="Re-run comparison with AI">
@@ -593,6 +644,117 @@ export const ResultsApp: React.FC = () => {
           ))}
         </div>
       </section>
+
+      {/* Share Comparison PNG Modal (PDF Section 44) */}
+      {showShareModal && result && (
+        <div className="share-modal-backdrop" onClick={() => setShowShareModal(false)}>
+          <div className="share-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="share-modal-header">
+              <div className="share-modal-title-group">
+                <ImageIcon size={18} color="#3b82f6" />
+                <h3 className="share-modal-title">Share Comparison Card (PNG)</h3>
+              </div>
+              <button
+                className="share-modal-close-btn"
+                onClick={() => setShowShareModal(false)}
+                title="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="share-modal-body">
+              {previewDataUrl && (
+                <div className="share-preview-box">
+                  <img
+                    src={previewDataUrl}
+                    alt="Comparison Card Preview"
+                    className="share-preview-img"
+                  />
+                </div>
+              )}
+
+              <div className="share-actions-row">
+                <div className="share-buttons-primary">
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleDownloadPng}
+                    disabled={downloadingImg}
+                  >
+                    <Download size={14} />
+                    <span>{downloadingImg ? 'Generating...' : 'Download PNG'}</span>
+                  </button>
+
+                  <button
+                    className={`btn ${imageCopied ? 'btn-success' : ''}`}
+                    onClick={handleCopyImage}
+                  >
+                    {imageCopied ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{imageCopied ? 'Image Copied!' : 'Copy Image'}</span>
+                  </button>
+                </div>
+
+                {/* Social Share Intent Links (Facebook, LinkedIn, X, WhatsApp, Reddit) */}
+                <div className="social-share-group">
+                  <span className="social-share-label">Post to:</span>
+                  {(() => {
+                    const links = ShareImageGenerator.getSocialShareLinks(result);
+                    return (
+                      <>
+                        <a
+                          href={links.x}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="social-btn btn-x"
+                          title="Share on X (Twitter)"
+                        >
+                          X
+                        </a>
+                        <a
+                          href={links.linkedin}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="social-btn btn-linkedin"
+                          title="Share on LinkedIn"
+                        >
+                          LinkedIn
+                        </a>
+                        <a
+                          href={links.facebook}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="social-btn btn-facebook"
+                          title="Share on Facebook"
+                        >
+                          Facebook
+                        </a>
+                        <a
+                          href={links.whatsapp}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="social-btn btn-whatsapp"
+                          title="Share on WhatsApp"
+                        >
+                          WhatsApp
+                        </a>
+                        <a
+                          href={links.reddit}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="social-btn btn-reddit"
+                          title="Share on Reddit"
+                        >
+                          Reddit
+                        </a>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

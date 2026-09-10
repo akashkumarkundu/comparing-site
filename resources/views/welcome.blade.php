@@ -785,6 +785,7 @@
                     <h4>Resources</h4>
                     <ul>
                         <li><a href="/truth-sheet">Anti-Hallucination Audit</a></li>
+                        <li><a href="/admin/metrics">Anonymous Metrics</a></li>
                         <li><a href="/support">Support & FAQ</a></li>
                         <li><a href="/privacy">Privacy Policy</a></li>
                         <li><a href="/download-extension">Direct ZIP Download</a></li>
