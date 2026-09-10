@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { PageSnapshot } from '../models/types';
-import { StorageService } from '../storage/StorageService';
+import { StorageService, DEFAULT_API_BASE_URL } from '../storage/StorageService';
+import { BackendService } from '../services/BackendService';
 import { captureCurrentTab } from '../extractors/PageExtractor';
-import { ExternalLink, Trash2, Plus, Check, Layers, AlertCircle, Sparkles } from 'lucide-react';
+import { ExternalLink, Trash2, Plus, Check, Layers, AlertCircle, Sparkles, RotateCcw } from 'lucide-react';
 
 interface CurrentTabInfo {
   title: string;
@@ -19,6 +20,11 @@ export const App: React.FC = () => {
   const [extracting, setExtracting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [serverOnline, setServerOnline] = useState<boolean | null>(null);
+  const [backendUrl, setBackendUrl] = useState<string>('');
+  const [customUrlInput, setCustomUrlInput] = useState<string>('');
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [detecting, setDetecting] = useState<boolean>(false);
 
   // Load storage state and active tab on mount
   useEffect(() => {
@@ -28,6 +34,25 @@ export const App: React.FC = () => {
         const state = await StorageService.getState();
         setPages(state.pages);
         setUserGoal(state.userGoal);
+        const activeUrl = state.apiBaseUrl || DEFAULT_API_BASE_URL;
+        setBackendUrl(activeUrl);
+        setCustomUrlInput(activeUrl);
+
+        // Probe backend health asynchronously
+        BackendService.checkHealth(activeUrl).then(async (alive) => {
+          if (alive) {
+            setServerOnline(true);
+          } else {
+            const det = await BackendService.autoDetectBackend();
+            if (det.success) {
+              setServerOnline(true);
+              setBackendUrl(det.url);
+              setCustomUrlInput(det.url);
+            } else {
+              setServerOnline(false);
+            }
+          }
+        });
 
         // Fetch current active tab info
         if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
@@ -173,6 +198,42 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleAutoDetectBackend = async () => {
+    try {
+      setDetecting(true);
+      const res = await BackendService.autoDetectBackend();
+      if (res.success) {
+        setBackendUrl(res.url);
+        setCustomUrlInput(res.url);
+        setServerOnline(true);
+        setInfoMessage(`Connected to live backend at ${res.url}`);
+      } else {
+        setServerOnline(false);
+        setErrorMessage('Could not find any running Laravel backend.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Auto-detection failed.');
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const handleSaveBackendUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customUrlInput.trim()) return;
+    const clean = customUrlInput.trim().replace(/\/+$/, '');
+    await StorageService.setApiBaseUrl(clean);
+    setBackendUrl(clean);
+    setShowSettings(false);
+    const alive = await BackendService.checkHealth(clean);
+    setServerOnline(alive);
+    if (alive) {
+      setInfoMessage(`Connected to ${clean}`);
+    } else {
+      setErrorMessage(`Cannot connect to ${clean}. Please check that the server is running.`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="popup-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -189,10 +250,53 @@ export const App: React.FC = () => {
           <div className="brand-logo">CA</div>
           <h1 className="brand-title">Compare Anything</h1>
         </div>
-        <span className={`badge-count ${isCompareReady ? 'ready' : ''}`}>
-          {pages.length} / {StorageService.MAX_PAGES} pages added
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div
+            className={`server-badge ${serverOnline === true ? 'online' : serverOnline === false ? 'offline' : ''}`}
+            onClick={() => setShowSettings(!showSettings)}
+            title={`Backend: ${backendUrl || 'Checking...'}. Click to configure.`}
+          >
+            <span className={`dot-indicator ${serverOnline === true ? 'online' : serverOnline === false ? 'offline' : ''}`} />
+            <span>{serverOnline === true ? 'Live' : serverOnline === false ? 'Offline' : '...'}</span>
+          </div>
+          <span className={`badge-count ${isCompareReady ? 'ready' : ''}`}>
+            {pages.length} / {StorageService.MAX_PAGES}
+          </span>
+        </div>
       </header>
+
+      {/* Settings Dropdown Box */}
+      {showSettings && (
+        <form onSubmit={handleSaveBackendUrl} className="settings-box">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, color: 'var(--text)' }}>Backend Server URL</span>
+            <span style={{ fontSize: '10px', color: serverOnline ? 'var(--success)' : 'var(--danger)' }}>
+              {serverOnline ? '● Connected' : '○ Unreachable'}
+            </span>
+          </div>
+          <input
+            type="text"
+            className="settings-input"
+            value={customUrlInput}
+            onChange={(e) => setCustomUrlInput(e.target.value)}
+            placeholder="http://comparing-site.test"
+          />
+          <div className="settings-actions">
+            <button
+              type="button"
+              className="btn-xs"
+              onClick={handleAutoDetectBackend}
+              disabled={detecting}
+            >
+              <RotateCcw size={10} className={detecting ? 'spin' : ''} />
+              {detecting ? 'Scanning...' : 'Auto-Detect'}
+            </button>
+            <button type="submit" className="btn-xs btn-primary">
+              Save
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* Error & Info Alerts */}
       {errorMessage && (
@@ -305,15 +409,41 @@ export const App: React.FC = () => {
           <span>What matters to you?</span>
           <span className="goal-optional">— Optional</span>
         </label>
-        <input
-          id="user-goal-input"
-          type="text"
-          className="goal-input"
-          placeholder="e.g. Best laptop for programming under Tk 80,000"
-          value={userGoal}
-          onChange={handleGoalChange}
-          maxLength={120}
-        />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <input
+            id="user-goal-input"
+            type="text"
+            className="goal-input"
+            style={{ paddingRight: userGoal ? '26px' : '10px' }}
+            placeholder="e.g. Affordable price, More exams, Better faculty"
+            value={userGoal}
+            onChange={handleGoalChange}
+            maxLength={120}
+          />
+          {userGoal && (
+            <button
+              type="button"
+              onClick={() => {
+                setUserGoal('');
+                StorageService.setUserGoal('');
+              }}
+              title="Clear goal"
+              style={{
+                position: 'absolute',
+                right: '8px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '13px',
+                lineHeight: 1,
+                padding: '2px',
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </section>
 
       {/* Footer Actions */}

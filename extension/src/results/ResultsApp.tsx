@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { ComparisonResult, PageSnapshot } from '../models/types';
-import { StorageService } from '../storage/StorageService';
+import { StorageService, DEFAULT_API_BASE_URL } from '../storage/StorageService';
 import { BackendService } from '../services/BackendService';
 import {
   Trophy,
@@ -25,6 +25,13 @@ export const ResultsApp: React.FC = () => {
   const [pages, setPages] = useState<PageSnapshot[]>([]);
   const [userGoal, setUserGoal] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [backendUrl, setBackendUrl] = useState<string>('');
+  const [customUrlInput, setCustomUrlInput] = useState<string>('');
+  const [showConfig, setShowConfig] = useState<boolean>(false);
+  const [detecting, setDetecting] = useState<boolean>(false);
+  const [detectStatus, setDetectStatus] = useState<string | null>(null);
+  const [editingGoal, setEditingGoal] = useState<boolean>(false);
+  const [newGoalInput, setNewGoalInput] = useState<string>('');
 
   useEffect(() => {
     runComparison(false);
@@ -34,11 +41,14 @@ export const ResultsApp: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setDetectStatus(null);
       setLoadingStep('Retrieving selected pages from local storage...');
 
       const state = await StorageService.getState();
       setPages(state.pages);
       setUserGoal(state.userGoal);
+      setBackendUrl(state.apiBaseUrl || DEFAULT_API_BASE_URL);
+      setCustomUrlInput(state.apiBaseUrl || DEFAULT_API_BASE_URL);
 
       if (state.pages.length < StorageService.MIN_PAGES) {
         setError(
@@ -70,6 +80,56 @@ export const ResultsApp: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAutoDetect = async () => {
+    try {
+      setDetecting(true);
+      setDetectStatus('Probing local servers (Laravel Herd, php artisan serve)...');
+      const res = await BackendService.autoDetectBackend();
+      if (res.success) {
+        setBackendUrl(res.url);
+        setCustomUrlInput(res.url);
+        setDetectStatus(`Connected to live backend at ${res.url}! Retrying...`);
+        setTimeout(() => {
+          runComparison(true);
+        }, 500);
+      } else {
+        setDetectStatus(res.error || 'Could not find any live backend server.');
+      }
+    } catch (err: any) {
+      setDetectStatus(err.message || 'Auto-detection failed.');
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const handleSaveCustomUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customUrlInput.trim()) return;
+    const clean = customUrlInput.trim().replace(/\/+$/, '');
+    await StorageService.setApiBaseUrl(clean);
+    setBackendUrl(clean);
+    setShowConfig(false);
+    runComparison(true);
+  };
+
+  const handleClearGoalAndRecompare = async () => {
+    await StorageService.setUserGoal('');
+    setUserGoal('');
+    if (result) {
+      setResult({ ...result, goal: '' });
+    }
+    runComparison(true);
+  };
+
+  const handleUpdateGoalAndRecompare = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = newGoalInput.trim();
+    await StorageService.setUserGoal(clean);
+    setUserGoal(clean);
+    setEditingGoal(false);
+    runComparison(true);
   };
 
   const handleCopyComparison = async () => {
@@ -198,14 +258,56 @@ export const ResultsApp: React.FC = () => {
           <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: 16 }} />
           <h2 className="state-title">Comparison Unavailable</h2>
           <p className="state-desc">{error || 'Unknown error occurred.'}</p>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-primary" onClick={() => runComparison(true)}>
-              <RotateCcw size={14} /> Retry Comparison
+
+          <div className="server-status-pill">
+            <span className="dot dot-offline"></span>
+            <span>Target Backend: <code>{backendUrl || 'http://comparing-site.test'}</code></span>
+          </div>
+
+          {detectStatus && (
+            <div className={`detect-status-alert ${detectStatus.includes('Connected') ? 'success' : 'warning'}`}>
+              <Info size={14} />
+              <span>{detectStatus}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleAutoDetect}
+              disabled={detecting}
+            >
+              <RotateCcw size={14} className={detecting ? 'spin' : ''} />
+              {detecting ? 'Detecting Server...' : 'Auto-Detect & Connect'}
+            </button>
+            <button className="btn" onClick={() => runComparison(true)} disabled={detecting}>
+              Retry Comparison
+            </button>
+            <button
+              className="btn"
+              onClick={() => setShowConfig(!showConfig)}
+            >
+              {showConfig ? 'Hide Settings' : 'Change URL'}
             </button>
             <button className="btn" onClick={() => window.close()}>
               Close Tab
             </button>
           </div>
+
+          {showConfig && (
+            <form onSubmit={handleSaveCustomUrl} className="server-config-form">
+              <input
+                type="text"
+                className="server-input"
+                placeholder="e.g. http://comparing-site.test or http://127.0.0.1:8000"
+                value={customUrlInput}
+                onChange={(e) => setCustomUrlInput(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary">
+                Save & Connect
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -259,10 +361,51 @@ export const ResultsApp: React.FC = () => {
             <span className="category-tag">{result.comparisonType}</span>
           </div>
 
-          {(result.goal || userGoal) && (
+          {editingGoal ? (
+            <form onSubmit={handleUpdateGoalAndRecompare} className="goal-edit-form">
+              <input
+                type="text"
+                className="goal-edit-input"
+                placeholder="e.g. Budget friendly, More live classes, Best faculty"
+                value={newGoalInput}
+                onChange={(e) => setNewGoalInput(e.target.value)}
+                autoFocus
+              />
+              <button type="submit" className="btn btn-primary" style={{ padding: '3px 10px', fontSize: '11px' }}>
+                Save & Re-compare
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setEditingGoal(false)}
+                style={{ padding: '3px 10px', fontSize: '11px' }}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
             <div className="goal-banner">
               <strong>Your Priority:</strong>
-              <span>{result.goal || userGoal}</span>
+              <span>{result.goal || userGoal || 'General comparison'}</span>
+              {(result.goal || userGoal) && (
+                <button
+                  className="goal-action-btn"
+                  onClick={handleClearGoalAndRecompare}
+                  title="Remove this priority and re-compare objectively"
+                >
+                  ✕ Clear Priority
+                </button>
+              )}
+              <button
+                className="goal-edit-btn"
+                onClick={() => {
+                  setNewGoalInput(result.goal || userGoal || '');
+                  setEditingGoal(true);
+                }}
+                title="Change or customize your comparison priority"
+              >
+                ✎ Change Priority
+              </button>
             </div>
           )}
         </div>

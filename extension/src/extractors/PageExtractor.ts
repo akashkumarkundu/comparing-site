@@ -79,12 +79,13 @@ export function extractPageInTabDOM(): {
     structuredData = '';
   }
 
-  // 4. Clutter Removal Clone
+  // 4. Clutter Removal Clone (Carefully targeted to preserve modern SPA content)
   const clone = document.body
     ? (document.body.cloneNode(true) as HTMLElement)
     : document.documentElement
     ? (document.documentElement.cloneNode(true) as HTMLElement)
     : document.createElement('div');
+
   const junkSelectors = [
     'script',
     'style',
@@ -92,28 +93,22 @@ export function extractPageInTabDOM(): {
     'iframe',
     'svg',
     'nav',
-    'header',
     'footer',
-    'aside',
     '[role="navigation"]',
     '[role="banner"]',
-    '[role="dialog"]',
     '.cookie',
     '#cookie',
     '.consent',
     '.ad',
     '.ads',
     '.advertisement',
-    '.sidebar',
-    '[aria-hidden="true"]',
-    '[hidden]',
   ];
 
   junkSelectors.forEach((sel) => {
     clone.querySelectorAll(sel).forEach((el) => el.remove());
   });
 
-  // 5. Structured Data Collection (Tables, Specs, DLs, eCommerce Key-Values)
+  // 5. Structured Data Collection
   const structuredSections: string[] = [];
 
   // 5a. Tables (e.g. specification tables) - extract up to 60 rows
@@ -134,7 +129,7 @@ export function extractPageInTabDOM(): {
     }
   });
 
-  // 5b. Modern eCommerce Key-Value Attribute Pairs (e.g. Ryans, Daraz, StarTech, BestBuy)
+  // 5b. Modern eCommerce Key-Value Attribute Pairs
   const titleElements = clone.querySelectorAll(
     '[class*="att-title"], [class*="attr-title"], [class*="spec-title"], [class*="spec-name"], [class*="prop-name"], [class*="property-name"], [class*="label-title"]'
   );
@@ -204,7 +199,65 @@ export function extractPageInTabDOM(): {
     }
   });
 
-  // 6. Headings & Key Bullet points
+  // 5e. Dedicated Wealth, Valuation, Pricing & Financial Figures Extractor
+  const financialMatches: string[] = [];
+  const priceElements = clone.querySelectorAll(
+    '[class*="price"], [class*="fee"], [class*="cost"], [class*="amount"], [class*="discount"], [class*="wealth"], [class*="worth"], [id*="price"], [id*="fee"], [id*="cost"], [id*="worth"]'
+  );
+  priceElements.forEach((el) => {
+    const text = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (text && text.length > 1 && text.length < 100 && (
+      text.includes('৳') || text.includes('Tk') || text.includes('BDT') ||
+      text.includes('$') || text.includes('€') || text.includes('£') ||
+      text.includes('টাকা') || text.toLowerCase().includes('fee') ||
+      text.toLowerCase().includes('worth') || text.toLowerCase().includes('price') || /\d+/.test(text)
+    )) {
+      financialMatches.push(text);
+    }
+  });
+
+  // Body text scan for Net Worth, Wealth, Valuation, and Multi-unit Currency figures
+  const rawBodyText = clone.textContent || '';
+
+  // Specific Net Worth / Wealth sentence matches
+  const netWorthRegex = /[^.\n;]{0,50}\b(?:net\s*worth|wealth|estimated\s*worth|valuation|market\s*cap(?:italization)?)\b[^.\n;]{0,90}/gi;
+  const netWorthMatches = rawBodyText.match(netWorthRegex) || [];
+  netWorthMatches.forEach((m) => {
+    const clean = m.replace(/\s+/g, ' ').trim();
+    if (clean.length > 5 && clean.length < 150 && /\d/.test(clean)) {
+      financialMatches.push(clean);
+    }
+  });
+
+  // Currency figures with scale words (e.g. US$908 billion, $106.5 billion, 50,000 BDT)
+  const currencyRegex = /(?:US\$|\$|€|£|৳|Tk\.?|BDT|টাকা)\s*[\d,]+(?:\.\d+)?\s*(?:trillion|billion|million|thousand|k|m|b|crore|lakh)?\b|\b[\d,]+(?:\.\d+)?\s*(?:trillion|billion|million|crore|lakh)\s*(?:USD|dollars?|BDT|টাকা|৳|Tk\.?)\b/gi;
+  const rawCurrencyMatches = rawBodyText.match(currencyRegex) || [];
+  rawCurrencyMatches.forEach((m) => {
+    const clean = m.replace(/\s+/g, ' ').trim();
+    if (clean.length > 1 && clean.length < 40) {
+      financialMatches.push(clean);
+    }
+  });
+
+  // 5f. Bullet Points, Highlights & Key Features
+  const featureList: string[] = [];
+  clone.querySelectorAll('li, [class*="highlight"], [class*="bullet"], [class*="benefit"], [class*="course"], [class*="routine"], [class*="curriculum"], [class*="exam"], [class*="class-count"]').forEach((el) => {
+    const text = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (text && text.length > 4 && text.length < 250 && !featureList.includes(text)) {
+      featureList.push(text);
+    }
+  });
+
+  // 5g. Badges & Metadata Chips (e.g. Batch, Validity, Online/Offline)
+  const badgeList: string[] = [];
+  clone.querySelectorAll('[class*="badge"], [class*="pill"], [class*="tag"], [class*="chip"], [class*="label"], [class*="meta"]').forEach((el) => {
+    const text = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (text && text.length > 2 && text.length < 80 && !badgeList.includes(text)) {
+      badgeList.push(text);
+    }
+  });
+
+  // 6. Headings Hierarchy
   const headingList: string[] = [];
   clone.querySelectorAll('h1, h2, h3, h4').forEach((h) => {
     const text = h.textContent?.replace(/\s+/g, ' ').trim();
@@ -213,43 +266,102 @@ export function extractPageInTabDOM(): {
     }
   });
 
-  // 7. Visible paragraphs from main content
-  const mainEl = clone.querySelector('main, article, [role="main"], #content, .content') || clone;
-  const paragraphs: string[] = [];
-  mainEl.querySelectorAll('p').forEach((p) => {
-    const text = p.textContent?.replace(/\s+/g, ' ').trim();
-    if (text && text.length > 20 && text.length < 500) {
-      paragraphs.push(text);
+  // 7. Lead Paragraphs & Visible Overview
+  const leadParagraphs: string[] = [];
+  const bodyParagraphs: string[] = [];
+
+  // Extract first 4 main paragraphs (ensuring complete overview & Net Worth are always captured)
+  const allP = clone.querySelectorAll('p');
+  let leadCount = 0;
+  allP.forEach((p) => {
+    const text = p.textContent?.replace(/\s+/g, ' ').trim() || '';
+    if (text.length < 25) return;
+    if (leadCount < 4 && text.length < 1500) {
+      leadParagraphs.push(text);
+      leadCount++;
+    } else if (text.length < 1200 && !bodyParagraphs.includes(text)) {
+      bodyParagraphs.push(text);
     }
   });
 
-  // 8. Intelligent Truncation & Prioritization (~5,000 chars limit)
-  // Priority: Specifications/Tables/Attributes > Headings > Description > Body text
+  // Extract other visible text blocks (blockquotes, descriptions, summaries)
+  clone.querySelectorAll('blockquote, [class*="desc"], [class*="about"], [class*="detail"], [class*="summary"], [class*="content"]').forEach((el) => {
+    if (el.tagName === 'P') return;
+    if (el.querySelector('p, table, ul, ol, div, section, article')) return;
+    const text = el.textContent?.replace(/\s+/g, ' ').trim();
+    if (text && text.length > 25 && text.length < 1000 && !bodyParagraphs.includes(text) && !leadParagraphs.includes(text)) {
+      bodyParagraphs.push(text);
+    }
+  });
+
+  // Fallback: If paragraphs are sparse, extract clean text lines from the whole page
+  if (leadParagraphs.length === 0 && bodyParagraphs.length < 5) {
+    const rawLines = (clone.innerText || clone.textContent || '')
+      .split('\n')
+      .map((l) => l.replace(/\s+/g, ' ').trim())
+      .filter((l) => l.length > 20 && l.length < 400);
+    const uniqueLines = Array.from(new Set(rawLines)).slice(0, 25);
+    uniqueLines.forEach((line) => {
+      if (!bodyParagraphs.includes(line)) {
+        bodyParagraphs.push(line);
+      }
+    });
+  }
+
+  // 8. Assemble Comprehensive importantText (prioritizing Lead Summary & Financials at the TOP)
   let finalImportantText = '';
 
-  const tableBlock = structuredSections.join('\n\n');
-  const headingsBlock = headingList.slice(0, 10).join('\n');
-  const bodyBlock = paragraphs.slice(0, 8).join('\n\n');
+  // 8a. SUMMARY & LEAD (Top Priority)
+  const summaryParts: string[] = [];
+  if (description) {
+    summaryParts.push(description);
+  }
+  if (leadParagraphs.length > 0) {
+    summaryParts.push(...leadParagraphs);
+  }
+  if (summaryParts.length > 0) {
+    finalImportantText += `[SUMMARY & LEAD OVERVIEW]\n${summaryParts.join('\n\n')}\n\n`;
+  }
 
+  // 8b. FINANCIALS, WEALTH & PRICING (Top Priority)
+  const uniqueFinancials = Array.from(new Set(financialMatches)).slice(0, 15);
+  if (uniqueFinancials.length > 0) {
+    finalImportantText += `[KEY FINANCIALS, WEALTH & PRICING]\n• ${uniqueFinancials.join('\n• ')}\n\n`;
+  }
+
+  // 8c. SPECIFICATIONS & ATTRIBUTES (Tables, Infoboxes)
+  const tableBlock = structuredSections.join('\n\n');
   if (tableBlock) {
     finalImportantText += `[SPECIFICATIONS & ATTRIBUTES]\n${tableBlock}\n\n`;
   }
 
-  if (headingsBlock && finalImportantText.length < 3500) {
-    finalImportantText += `[KEY SECTIONS]\n${headingsBlock}\n\n`;
+  // 8d. KEY HIGHLIGHTS & ACHIEVEMENTS
+  const uniqueFeatures = Array.from(new Set(featureList)).slice(0, 30);
+  if (uniqueFeatures.length > 0) {
+    finalImportantText += `[KEY HIGHLIGHTS & FEATURES]\n• ${uniqueFeatures.join('\n• ')}\n\n`;
   }
 
-  if (description && finalImportantText.length < 4000) {
-    finalImportantText += `[SUMMARY]\n${description}\n\n`;
+  // 8e. TAGS & METADATA
+  const uniqueBadges = Array.from(new Set(badgeList)).slice(0, 15);
+  if (uniqueBadges.length > 0) {
+    finalImportantText += `[TAGS & LABELS]\n${uniqueBadges.join(' | ')}\n\n`;
   }
 
-  if (bodyBlock && finalImportantText.length < 4500) {
-    finalImportantText += `[OVERVIEW]\n${bodyBlock}\n`;
+  // 8f. HEADINGS
+  const headingsBlock = headingList.slice(0, 12).join('\n');
+  if (headingsBlock) {
+    finalImportantText += `[PAGE SECTIONS]\n${headingsBlock}\n\n`;
   }
 
-  // Cap at ~5,000 characters
-  if (finalImportantText.length > 5000) {
-    finalImportantText = finalImportantText.substring(0, 5000) + '... [truncated]';
+  // 8g. ADDITIONAL DETAILS & CONTEXT
+  const uniqueBody = Array.from(new Set(bodyParagraphs)).slice(0, 15);
+  if (uniqueBody.length > 0) {
+    finalImportantText += `[ADDITIONAL DETAILS]\n${uniqueBody.join('\n\n')}\n`;
+  }
+
+  // Cap at ~10,000 characters (within backend 15,000 limit)
+  if (finalImportantText.length > 10000) {
+    finalImportantText = finalImportantText.substring(0, 10000) + '... [truncated]';
   }
 
   return {

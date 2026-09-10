@@ -358,3 +358,100 @@ body::-webkit-scrollbar-thumb {
   display: flex;
   justify-content: center;
 }
+
+/* Server Status Badge & Config in Popup */
+.server-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  transition: all 0.15s ease;
+}
+
+.server-badge:hover {
+  background: #f1f5f9;
+}
+
+.server-badge.online {
+  border-color: #bbf7d0;
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.server-badge.offline {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.dot-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-indicator.online {
+  background-color: #22c55e;
+}
+
+.dot-indicator.offline {
+  background-color: #ef4444;
+}
+
+.settings-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-family: monospace;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.settings-input:focus {
+  border-color: var(--primary);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn-xs {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-xs.btn-primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}

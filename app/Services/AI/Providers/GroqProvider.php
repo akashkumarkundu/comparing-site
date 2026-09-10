@@ -50,92 +50,127 @@ final class GroqProvider implements IAIProvider
         $systemPrompt = ComparisonPromptBuilder::buildSystemPrompt();
         $userMessage = ComparisonPromptBuilder::buildUserMessage($request);
 
-        $payload = [
-            'model' => $this->model,
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $systemPrompt,
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $userMessage,
-                ],
-            ],
-            'temperature' => 0.1,
-            'response_format' => [
-                'type' => 'json_object',
-            ],
-        ];
+        /** @var list<string> $candidateModels */
+        $candidateModels = array_values(array_unique([
+            $this->model,
+            'openai/gpt-oss-120b',
+            'qwen/qwen3.8-27b',
+        ]));
 
-        try {
-            /** @var Response $response */
-            $response = Http::withToken($this->apiKey)
-                ->timeout($this->timeout)
-                ->retry($this->retry, 500, throw: false)
-                ->post("{$this->baseUrl}/chat/completions", $payload);
-        } catch (ConnectionException $e) {
-            Log::error('Groq connection timeout/failure: '.$e->getMessage());
-            throw new HttpResponseException(response()->json([
-                'success' => false,
-                'message' => 'Comparison couldn\'t be generated. Please try again.',
-            ], HttpResponse::HTTP_GATEWAY_TIMEOUT));
-        } catch (Exception $e) {
-            Log::error('Groq unexpected request error: '.$e->getMessage());
-            throw new HttpResponseException(response()->json([
-                'success' => false,
-                'message' => 'Comparison couldn\'t be generated. Please try again.',
-            ], HttpResponse::HTTP_INTERNAL_SERVER_ERROR));
+        $lastStatus = HttpResponse::HTTP_BAD_GATEWAY;
+        $candidateCount = count($candidateModels);
+
+        foreach ($candidateModels as $index => $modelToTry) {
+            $payload = [
+                'model' => $modelToTry,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => $systemPrompt,
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $userMessage,
+                    ],
+                ],
+                'temperature' => 0.1,
+                'max_tokens' => 4096,
+                'reasoning_format' => 'hidden',
+                'reasoning_effort' => 'low',
+                'response_format' => [
+                    'type' => 'json_object',
+                ],
+            ];
+
+            try {
+                /** @var Response $response */
+                $response = Http::withToken($this->apiKey)
+                    ->timeout($this->timeout)
+                    ->retry($this->retry, 500, throw: false)
+                    ->post("{$this->baseUrl}/chat/completions", $payload);
+            } catch (ConnectionException $e) {
+                Log::error("Groq connection timeout/failure for model {$modelToTry}: ".$e->getMessage());
+                $lastStatus = HttpResponse::HTTP_GATEWAY_TIMEOUT;
+
+                continue;
+            } catch (Exception $e) {
+                Log::error("Groq unexpected request error for model {$modelToTry}: ".$e->getMessage());
+                $lastStatus = HttpResponse::HTTP_INTERNAL_SERVER_ERROR;
+
+                continue;
+            }
+
+            $lastStatus = $response->status();
+
+            if ($response->status() === HttpResponse::HTTP_TOO_MANY_REQUESTS) {
+                Log::warning("Groq rate limit exceeded (HTTP 429) on model {$modelToTry}.");
+                if ($index < $candidateCount - 1) {
+                    usleep(150000);
+
+                    continue;
+                }
+                break;
+            }
+
+            if (! $response->successful()) {
+                Log::error("Groq model {$modelToTry} returned error status: ".$response->status().' Body: '.$response->body());
+                if ($index < $candidateCount - 1) {
+                    continue;
+                }
+                break;
+            }
+
+            $rawJson = $response->json();
+            $content = $rawJson['choices'][0]['message']['content'] ?? null;
+
+            if (! is_string($content) || trim($content) === '') {
+                Log::error("Groq model {$modelToTry} returned empty completion content.");
+                if ($index < $candidateCount - 1) {
+                    continue;
+                }
+                break;
+            }
+
+            // Clean potential markdown blocks if present
+            $cleanJson = trim($content);
+            if (str_starts_with($cleanJson, '```json')) {
+                $cleanJson = preg_replace('/^```json\s*/', '', $cleanJson) ?? $cleanJson;
+            }
+            if (str_starts_with($cleanJson, '```')) {
+                $cleanJson = preg_replace('/^```\s*/', '', $cleanJson) ?? $cleanJson;
+            }
+            if (str_ends_with($cleanJson, '```')) {
+                $cleanJson = preg_replace('/\s*```$/', '', $cleanJson) ?? $cleanJson;
+            }
+
+            $decoded = json_decode($cleanJson, true);
+            if (! is_array($decoded)) {
+                if (preg_match('/\{[\s\S]*\}/', $cleanJson, $matches)) {
+                    $decoded = json_decode($matches[0], true);
+                }
+            }
+
+            if (! is_array($decoded)) {
+                Log::error("Failed to decode Groq JSON output for model {$modelToTry}: ".json_last_error_msg().' Raw: '.$content);
+                if ($index < $candidateCount - 1) {
+                    continue;
+                }
+                break;
+            }
+
+            return ComparisonResultDTO::fromArray($decoded);
         }
 
-        if ($response->status() === HttpResponse::HTTP_TOO_MANY_REQUESTS) {
-            Log::warning('Groq rate limit exceeded (HTTP 429).');
+        if ($lastStatus === HttpResponse::HTTP_TOO_MANY_REQUESTS) {
             throw new HttpResponseException(response()->json([
                 'success' => false,
                 'message' => 'Free AI capacity is temporarily unavailable.',
             ], HttpResponse::HTTP_TOO_MANY_REQUESTS));
         }
 
-        if (! $response->successful()) {
-            Log::error('Groq API returned error status: '.$response->status().' Body: '.$response->body());
-            throw new HttpResponseException(response()->json([
-                'success' => false,
-                'message' => 'Comparison couldn\'t be generated. Please try again.',
-            ], HttpResponse::HTTP_BAD_GATEWAY));
-        }
-
-        $rawJson = $response->json();
-        $content = $rawJson['choices'][0]['message']['content'] ?? null;
-
-        if (! is_string($content) || trim($content) === '') {
-            Log::error('Groq returned empty completion content.');
-            throw new HttpResponseException(response()->json([
-                'success' => false,
-                'message' => 'Comparison couldn\'t be generated. Please try again.',
-            ], HttpResponse::HTTP_INTERNAL_SERVER_ERROR));
-        }
-
-        // Clean potential markdown blocks if present
-        $cleanJson = trim($content);
-        if (str_starts_with($cleanJson, '```json')) {
-            $cleanJson = preg_replace('/^```json\s*/', '', $cleanJson) ?? $cleanJson;
-        }
-        if (str_starts_with($cleanJson, '```')) {
-            $cleanJson = preg_replace('/^```\s*/', '', $cleanJson) ?? $cleanJson;
-        }
-        if (str_ends_with($cleanJson, '```')) {
-            $cleanJson = preg_replace('/\s*```$/', '', $cleanJson) ?? $cleanJson;
-        }
-
-        $decoded = json_decode($cleanJson, true);
-        if (! is_array($decoded)) {
-            Log::error('Failed to decode Groq JSON output: '.json_last_error_msg().' Raw: '.$content);
-            throw new HttpResponseException(response()->json([
-                'success' => false,
-                'message' => 'Comparison couldn\'t be generated. Please try again.',
-            ], HttpResponse::HTTP_INTERNAL_SERVER_ERROR));
-        }
-
-        return ComparisonResultDTO::fromArray($decoded);
+        throw new HttpResponseException(response()->json([
+            'success' => false,
+            'message' => 'Comparison couldn\'t be generated. Please try again.',
+        ], HttpResponse::HTTP_BAD_GATEWAY));
     }
 }

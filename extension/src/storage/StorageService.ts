@@ -10,7 +10,14 @@ const STORAGE_KEYS = {
 
 const MAX_PAGES = 4;
 const MIN_PAGES = 2;
-export const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000';
+export const DEFAULT_API_BASE_URL = 'http://comparing-site.test';
+export const CANDIDATE_API_BASE_URLS = [
+  'http://comparing-site.test',
+  'http://127.0.0.1:8000',
+  'http://localhost:8000',
+  'http://localhost',
+  'https://comparing-site.test',
+];
 
 function generateGuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -172,6 +179,19 @@ export class StorageService {
       localStorage.removeItem(STORAGE_KEYS.USER_GOAL);
       localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
     }
+  }
+
+  /**
+   * Updates and saves the API base URL in storage
+   */
+  static async setApiBaseUrl(url: string): Promise<string> {
+    const cleanUrl = url.trim().replace(/\/+$/, '');
+    if (isChromeStorageAvailable) {
+      await chrome.storage.local.set({ [STORAGE_KEYS.API_BASE_URL]: cleanUrl });
+    } else {
+      localStorage.setItem(STORAGE_KEYS.API_BASE_URL, cleanUrl);
+    }
+    return cleanUrl;
   }
 
   static get MAX_PAGES() {
