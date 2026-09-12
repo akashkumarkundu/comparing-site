@@ -1,14 +1,112 @@
 import type { ComparisonResult } from '../models/types';
 
+interface CriteriaRowLayout {
+  crit: ComparisonResult['criteria'][number];
+  rowHeight: number;
+  nameLines: string[];
+  values: {
+    itemId: string;
+    text: string;
+    lines: string[];
+    isWinner: boolean;
+    isNotStated: boolean;
+  }[];
+}
+
 export class ShareImageGenerator {
   /**
-   * Generates a sleek, high-resolution 1200x800 HTML Canvas representation of the comparison
+   * Generates a sleek, high-resolution HTML Canvas representation of the comparison.
+   * Dynamically calculates canvas height and wraps rows so that ALL comparison criteria are fully included.
    */
   static generateCanvas(result: ComparisonResult): HTMLCanvasElement {
     const width = 1200;
-    const height = 800;
     const scale = 2; // High-DPI retina sharpness
 
+    // Context for preliminary text measurements to calculate layout & height
+    const measureCanvas = document.createElement('canvas');
+    const mCtx = measureCanvas.getContext('2d');
+    if (!mCtx) {
+      throw new Error('Canvas 2D context is unavailable');
+    }
+
+    const tableX = 50;
+    const tableWidth = width - 100;
+    const featureColWidth = 240;
+    const itemCount = Math.min(result.items.length, 4);
+    const itemColWidth = (tableWidth - featureColWidth) / Math.max(itemCount, 1);
+
+    // Pre-calculate all criteria rows layout (wrap text and determine row heights)
+    const allCriteria = result.criteria || [];
+    const rowLayouts: CriteriaRowLayout[] = allCriteria.map((crit) => {
+      mCtx.font = crit.importance === 'high'
+        ? 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        : '500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const nameLines = this.wrapText(mCtx, crit.name, featureColWidth - 24, 2);
+
+      const valueLayouts = result.items.slice(0, itemCount).map((it) => {
+        const valObj = crit.values.find((v) => v.itemId === it.id);
+        const isWinner = crit.winnerItemIds.includes(it.id);
+        const rawVal = valObj?.value || 'Not stated';
+        const isNotStated = rawVal.toLowerCase() === 'not stated';
+        const fullValText = isWinner && !rawVal.toLowerCase().includes('best') && !isNotStated
+          ? `${rawVal}  ✓ Best`
+          : rawVal;
+
+        mCtx.font = isWinner
+          ? 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          : (isNotStated
+            ? 'italic 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            : '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+
+        const lines = this.wrapText(mCtx, fullValText, itemColWidth - 16, 2);
+        return {
+          itemId: it.id,
+          text: fullValText,
+          lines,
+          isWinner,
+          isNotStated,
+        };
+      });
+
+      const maxLines = Math.max(
+        nameLines.length,
+        ...valueLayouts.map((v) => v.lines.length),
+        1
+      );
+      const rowHeight = maxLines === 1 ? 34 : 48;
+
+      return {
+        crit,
+        rowHeight,
+        nameLines,
+        values: valueLayouts,
+      };
+    });
+
+    const totalCriteriaHeight = rowLayouts.reduce((sum, r) => sum + r.rowHeight + 2, 0);
+
+    // Dynamic height calculation
+    let currentY = 176;
+    if (result.goal) {
+      currentY += 40;
+    } else {
+      currentY += 12;
+    }
+    const verdictHeight = 88;
+    currentY += verdictHeight + 24;
+
+    if (result.bestFor && result.bestFor.length > 0) {
+      currentY += 18 + 76;
+    }
+
+    if (rowLayouts.length > 0 && itemCount > 0) {
+      currentY += 38 + totalCriteriaHeight + 24;
+    }
+
+    const footerPadding = 80;
+    const height = Math.max(800, currentY + footerPadding);
+
+    // Create the actual high-res canvas
     const canvas = document.createElement('canvas');
     canvas.width = width * scale;
     canvas.height = height * scale;
@@ -20,40 +118,53 @@ export class ShareImageGenerator {
 
     ctx.scale(scale, scale);
 
-    // 1. Background Gradient (Dark Modern Theme)
+    // 1. Background Gradient (Modern Vibrant White & Blue Theme)
     const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-    bgGrad.addColorStop(0, '#090d16');
-    bgGrad.addColorStop(0.5, '#0d1527');
-    bgGrad.addColorStop(1, '#070a12');
+    bgGrad.addColorStop(0, '#f0f7ff');
+    bgGrad.addColorStop(0.3, '#ffffff');
+    bgGrad.addColorStop(0.7, '#f8faff');
+    bgGrad.addColorStop(1, '#e8f2fe');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Subtle background glowing circles
-    const radGrad1 = ctx.createRadialGradient(width - 150, 120, 10, width - 150, 120, 300);
-    radGrad1.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
+    // Subtle ambient glowing accents (royal blue & sky cyan)
+    const radGrad1 = ctx.createRadialGradient(width - 120, 80, 20, width - 120, 80, 420);
+    radGrad1.addColorStop(0, 'rgba(59, 130, 246, 0.16)');
     radGrad1.addColorStop(1, 'transparent');
     ctx.fillStyle = radGrad1;
     ctx.fillRect(0, 0, width, height);
 
-    const radGrad2 = ctx.createRadialGradient(150, height - 120, 10, 150, height - 120, 260);
-    radGrad2.addColorStop(0, 'rgba(16, 185, 129, 0.12)');
+    const radGrad2 = ctx.createRadialGradient(80, 260, 20, 80, 260, 360);
+    radGrad2.addColorStop(0, 'rgba(14, 165, 233, 0.12)');
     radGrad2.addColorStop(1, 'transparent');
     ctx.fillStyle = radGrad2;
     ctx.fillRect(0, 0, width, height);
 
+    const radGrad3 = ctx.createRadialGradient(width / 2, height - 100, 30, width / 2, height - 100, 450);
+    radGrad3.addColorStop(0, 'rgba(99, 102, 241, 0.07)');
+    radGrad3.addColorStop(1, 'transparent');
+    ctx.fillStyle = radGrad3;
+    ctx.fillRect(0, 0, width, height);
+
     // Card outer border
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 2;
-    this.roundRect(ctx, 24, 24, width - 48, height - 48, 16);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    this.roundRect(ctx, 24, 24, width - 48, height - 48, 20);
+    ctx.stroke();
+
+    // Inner subtle luxury border
+    ctx.strokeStyle = 'rgba(59, 130, 246, 0.14)';
+    ctx.lineWidth = 1;
+    this.roundRect(ctx, 28, 28, width - 56, height - 56, 17);
     ctx.stroke();
 
     // 2. Top Header Bar
     // Logo Icon Badge
     const logoGrad = ctx.createLinearGradient(50, 50, 94, 94);
-    logoGrad.addColorStop(0, '#3b82f6');
-    logoGrad.addColorStop(1, '#1d4ed8');
+    logoGrad.addColorStop(0, '#2563eb');
+    logoGrad.addColorStop(1, '#0284c7');
     ctx.fillStyle = logoGrad;
-    this.roundRect(ctx, 50, 50, 44, 44, 10);
+    this.roundRect(ctx, 50, 50, 44, 44, 12);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
@@ -66,31 +177,31 @@ export class ShareImageGenerator {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = '#0f172a';
     ctx.fillText('COMPARE ANYTHING', 106, 68);
 
     ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = '#64748b';
     ctx.fillText('Stop switching between tabs. Compare them.', 106, 88);
 
     // Category Tag (Top Right)
     const categoryText = (result.comparisonType || 'Comparison').toUpperCase();
     ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    const catWidth = ctx.measureText(categoryText).width + 24;
-    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+    const catWidth = ctx.measureText(categoryText).width + 26;
+    ctx.fillStyle = 'rgba(37, 99, 235, 0.08)';
     this.roundRect(ctx, width - 50 - catWidth, 56, catWidth, 28, 14);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.4)';
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.28)';
     ctx.lineWidth = 1;
     this.roundRect(ctx, width - 50 - catWidth, 56, catWidth, 28, 14);
     ctx.stroke();
 
-    ctx.fillStyle = '#60a5fa';
+    ctx.fillStyle = '#1d4ed8';
     ctx.textAlign = 'center';
     ctx.fillText(categoryText, width - 50 - catWidth / 2, 74);
 
     // Divider
-    ctx.strokeStyle = '#1e293b';
+    ctx.strokeStyle = '#e2e8f0';
     ctx.beginPath();
     ctx.moveTo(50, 114);
     ctx.lineTo(width - 50, 114);
@@ -99,72 +210,72 @@ export class ShareImageGenerator {
     // 3. Comparison Title & Priority
     ctx.textAlign = 'left';
     ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#0f172a';
 
     const title = result.comparisonTitle || 'Side-by-Side Comparison';
     const truncatedTitle = this.truncateText(ctx, title, width - 100);
     ctx.fillText(truncatedTitle, 50, 154);
 
-    let currentY = 176;
+    let drawY = 176;
     if (result.goal) {
       const goalText = `User Priority: ${result.goal}`;
       ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       const goalWidth = ctx.measureText(goalText).width + 24;
 
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
-      this.roundRect(ctx, 50, currentY, Math.min(goalWidth, width - 100), 26, 6);
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.10)';
+      this.roundRect(ctx, 50, drawY, Math.min(goalWidth, width - 100), 26, 6);
       ctx.fill();
       ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
       ctx.lineWidth = 1;
-      this.roundRect(ctx, 50, currentY, Math.min(goalWidth, width - 100), 26, 6);
+      this.roundRect(ctx, 50, drawY, Math.min(goalWidth, width - 100), 26, 6);
       ctx.stroke();
 
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillText(this.truncateText(ctx, goalText, width - 120), 62, currentY + 17);
-      currentY += 40;
+      ctx.fillStyle = '#b45309';
+      ctx.fillText(this.truncateText(ctx, goalText, width - 120), 62, drawY + 17);
+      drawY += 40;
     } else {
-      currentY += 12;
+      drawY += 12;
     }
 
-    // 4. Best Overall Verdict Banner (Highlighted Card)
+    // 4. Best Overall Verdict Banner (Vibrant Blue Highlight Card)
     const bestItem = result.items.find((it) => it.id === result.bestOverall?.itemId);
     const bestWinnerName = bestItem ? bestItem.displayName : (result.bestOverall?.itemId ? 'Declared Winner' : 'No Clear Winner');
     const bestReason = result.bestOverall?.reason || 'The provided pages do not contain enough decisive evidence.';
 
-    const verdictHeight = 88;
-    const verdictGrad = ctx.createLinearGradient(50, currentY, width - 50, currentY + verdictHeight);
-    verdictGrad.addColorStop(0, 'rgba(16, 185, 129, 0.12)');
-    verdictGrad.addColorStop(1, 'rgba(6, 78, 59, 0.20)');
+    const verdictGrad = ctx.createLinearGradient(50, drawY, width - 50, drawY + verdictHeight);
+    verdictGrad.addColorStop(0, '#1e40af'); // Deep royal blue
+    verdictGrad.addColorStop(0.55, '#2563eb'); // Vibrant blue
+    verdictGrad.addColorStop(1, '#0284c7'); // Electric sky blue
     ctx.fillStyle = verdictGrad;
-    this.roundRect(ctx, 50, currentY, width - 100, verdictHeight, 12);
+    this.roundRect(ctx, 50, drawY, width - 100, verdictHeight, 14);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)';
     ctx.lineWidth = 1.5;
-    this.roundRect(ctx, 50, currentY, width - 100, verdictHeight, 12);
+    this.roundRect(ctx, 50, drawY, width - 100, verdictHeight, 14);
     ctx.stroke();
 
     // Trophy Icon / Tag
-    ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#34d399';
-    ctx.fillText('★ BEST OVERALL RECOMMENDATION', 70, currentY + 28);
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#93c5fd';
+    ctx.fillText('★ BEST OVERALL RECOMMENDATION', 72, drawY + 28);
 
-    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(this.truncateText(ctx, bestWinnerName, width - 140), 70, currentY + 52);
+    ctx.fillText(this.truncateText(ctx, bestWinnerName, width - 144), 72, drawY + 54);
 
     ctx.font = '400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(this.truncateText(ctx, bestReason, width - 140), 70, currentY + 74);
+    ctx.fillStyle = '#e0f2fe';
+    ctx.fillText(this.truncateText(ctx, bestReason, width - 144), 72, drawY + 76);
 
-    currentY += verdictHeight + 24;
+    drawY += verdictHeight + 24;
 
     // 5. Best For Quick Highlights (Pills grid)
     if (result.bestFor && result.bestFor.length > 0) {
-      ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('KEY HIGHLIGHTS & BEST-FOR AWARDS:', 50, currentY + 6);
-      currentY += 18;
+      ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = '#475569';
+      ctx.fillText('KEY HIGHLIGHTS & BEST-FOR AWARDS:', 50, drawY + 6);
+      drawY += 18;
 
       const highlights = result.bestFor.slice(0, 3);
       const pillWidth = (width - 100 - (highlights.length - 1) * 16) / highlights.length;
@@ -174,88 +285,131 @@ export class ShareImageGenerator {
         const itemName = item ? item.displayName : 'Item';
         const pillX = 50 + idx * (pillWidth + 16);
 
-        ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
-        this.roundRect(ctx, pillX, currentY, pillWidth, 56, 8);
+        // White card with soft border
+        ctx.fillStyle = '#ffffff';
+        this.roundRect(ctx, pillX, drawY, pillWidth, 58, 10);
         ctx.fill();
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 1;
-        this.roundRect(ctx, pillX, currentY, pillWidth, 56, 8);
+        ctx.strokeStyle = '#bfdbfe';
+        ctx.lineWidth = 1.5;
+        this.roundRect(ctx, pillX, drawY, pillWidth, 58, 10);
         ctx.stroke();
 
         ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = '#60a5fa';
-        ctx.fillText(this.truncateText(ctx, bf.label.toUpperCase(), pillWidth - 24), pillX + 12, currentY + 22);
+        ctx.fillStyle = '#2563eb';
+        ctx.fillText(this.truncateText(ctx, bf.label.toUpperCase(), pillWidth - 24), pillX + 14, drawY + 23);
 
-        ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = '#f1f5f9';
-        ctx.fillText(this.truncateText(ctx, itemName, pillWidth - 24), pillX + 12, currentY + 44);
+        ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(this.truncateText(ctx, itemName, pillWidth - 24), pillX + 14, drawY + 46);
       });
 
-      currentY += 76;
+      drawY += 76;
     }
 
-    // 6. Side-by-Side Comparison Mini Table (Top 4 Criteria)
-    const itemCount = Math.min(result.items.length, 4);
-    const topCriteria = result.criteria.slice(0, 4);
-
-    if (topCriteria.length > 0 && itemCount > 0) {
-      const tableX = 50;
-      const tableWidth = width - 100;
-      const featureColWidth = 200;
-      const itemColWidth = (tableWidth - featureColWidth) / itemCount;
-
-      // Table Header Row
-      const headerY = currentY;
-      ctx.fillStyle = 'rgba(30, 41, 59, 0.9)';
-      this.roundRect(ctx, tableX, headerY, tableWidth, 34, 6);
+    // 6. Side-by-Side Comparison Full Table (All criteria points rendered)
+    if (rowLayouts.length > 0 && itemCount > 0) {
+      // Table Header Row: Deep Navy with Royal Blue Accent
+      const headerY = drawY;
+      const headerGrad = ctx.createLinearGradient(tableX, headerY, tableX + tableWidth, headerY);
+      headerGrad.addColorStop(0, '#0f172a');
+      headerGrad.addColorStop(1, '#1e3a8a');
+      ctx.fillStyle = headerGrad;
+      this.roundRect(ctx, tableX, headerY, tableWidth, 36, 8);
       ctx.fill();
 
       ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText('FEATURE / CRITERIA', tableX + 14, headerY + 22);
+      ctx.textAlign = 'left';
+      ctx.fillText('FEATURE / CRITERIA', tableX + 16, headerY + 23);
 
       result.items.slice(0, itemCount).forEach((it, idx) => {
         const colX = tableX + featureColWidth + idx * itemColWidth;
         const isOverallWinner = it.id === result.bestOverall?.itemId;
-        ctx.fillStyle = isOverallWinner ? '#34d399' : '#e2e8f0';
-        ctx.font = isOverallWinner ? 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' : '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText(this.truncateText(ctx, (isOverallWinner ? '★ ' : '') + it.displayName, itemColWidth - 16), colX + 8, headerY + 22);
+        ctx.fillStyle = isOverallWinner ? '#38bdf8' : '#ffffff';
+        ctx.font = isOverallWinner
+          ? 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          : '600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(this.truncateText(ctx, (isOverallWinner ? '★ ' : '') + it.displayName, itemColWidth - 16), colX + 10, headerY + 23);
       });
 
-      currentY += 38;
+      drawY += 40;
 
-      // Criteria Rows
-      topCriteria.forEach((crit, rIdx) => {
-        const rowY = currentY + rIdx * 30;
-        ctx.fillStyle = rIdx % 2 === 0 ? 'rgba(15, 23, 42, 0.6)' : 'rgba(30, 41, 59, 0.3)';
-        ctx.fillRect(tableX, rowY, tableWidth, 28);
+      // All Criteria Rows
+      rowLayouts.forEach((row, rIdx) => {
+        const rowY = drawY;
+        // Alternating crisp white and soft ice-blue rows
+        ctx.fillStyle = rIdx % 2 === 0 ? '#ffffff' : '#f4f8fe';
+        this.roundRect(ctx, tableX, rowY, tableWidth, row.rowHeight, 4);
+        ctx.fill();
 
-        ctx.font = '500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillStyle = '#cbd5e1';
-        ctx.fillText(this.truncateText(ctx, crit.name, featureColWidth - 20), tableX + 14, rowY + 18);
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        this.roundRect(ctx, tableX, rowY, tableWidth, row.rowHeight, 4);
+        ctx.stroke();
 
-        result.items.slice(0, itemCount).forEach((it, cIdx) => {
+        // Feature Name
+        const isKeySpec = row.crit.importance === 'high';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = isKeySpec ? '#0f172a' : '#1e293b';
+        ctx.font = isKeySpec
+          ? 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+          : '500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+        if (row.nameLines.length === 1) {
+          ctx.fillText(row.nameLines[0], tableX + 16, rowY + (row.rowHeight / 2) + 4);
+          if (isKeySpec) {
+            const nameWidth = ctx.measureText(row.nameLines[0]).width;
+            if (nameWidth + 76 < featureColWidth) {
+              const pillX = tableX + 16 + nameWidth + 8;
+              const pillY = rowY + (row.rowHeight / 2) - 8;
+              ctx.fillStyle = 'rgba(37, 99, 235, 0.10)';
+              this.roundRect(ctx, pillX, pillY, 58, 16, 4);
+              ctx.fill();
+              ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+              ctx.fillStyle = '#2563eb';
+              ctx.fillText('KEY SPEC', pillX + 6, pillY + 12);
+            }
+          }
+        } else {
+          ctx.fillText(row.nameLines[0], tableX + 16, rowY + 16);
+          ctx.fillText(row.nameLines[1], tableX + 16, rowY + 32);
+        }
+
+        // Feature Values
+        row.values.forEach((val, cIdx) => {
           const colX = tableX + featureColWidth + cIdx * itemColWidth;
-          const valObj = crit.values.find((v) => v.itemId === it.id);
-          const isWinner = crit.winnerItemIds.includes(it.id);
-          const valText = valObj?.value || 'Not stated';
 
-          if (isWinner) {
-            ctx.fillStyle = '#34d399';
+          if (val.isWinner) {
+            // Subtle emerald highlight background pill
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+            this.roundRect(ctx, colX + 4, rowY + 3, itemColWidth - 8, row.rowHeight - 6, 6);
+            ctx.fill();
+
+            ctx.fillStyle = '#047857'; // Deep emerald green
             ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          } else if (val.isNotStated) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'italic 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           } else {
-            ctx.fillStyle = valText === 'Not stated' ? '#64748b' : '#f8fafc';
+            ctx.fillStyle = '#1e293b'; // High-contrast dark slate
             ctx.font = '400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
           }
 
-          ctx.fillText(this.truncateText(ctx, valText, itemColWidth - 16), colX + 8, rowY + 18);
+          if (val.lines.length === 1) {
+            ctx.fillText(val.lines[0], colX + 10, rowY + (row.rowHeight / 2) + 4);
+          } else {
+            ctx.fillText(val.lines[0], colX + 10, rowY + 16);
+            ctx.fillText(val.lines[1], colX + 10, rowY + 32);
+          }
         });
+
+        drawY += row.rowHeight + 2;
       });
     }
 
     // 7. Footer Watermark Bar
-    const footerY = height - 48;
-    ctx.strokeStyle = '#1e293b';
+    const footerY = height - 44;
+    ctx.strokeStyle = '#cbd5e1';
     ctx.beginPath();
     ctx.moveTo(50, footerY - 14);
     ctx.lineTo(width - 50, footerY - 14);
@@ -263,13 +417,63 @@ export class ShareImageGenerator {
 
     ctx.font = '500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'left';
     ctx.fillText('Generated with Compare Anything • Evidence-based AI comparison with zero hallucinations', 50, footerY + 6);
 
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = '#2563eb';
+    ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillText('compare-anything.org', width - 50, footerY + 6);
 
     return canvas;
+  }
+
+  /**
+   * Wraps text into lines with a maximum line limit, truncating the final line if necessary
+   */
+  private static wrapText(
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    maxWidth: number,
+    maxLines: number = 2
+  ): string[] {
+    if (!text) return ['Not stated'];
+    const trimmed = text.trim();
+    if (!trimmed) return ['Not stated'];
+
+    if (ctx.measureText(trimmed).width <= maxWidth) {
+      return [trimmed];
+    }
+
+    const words = trimmed.split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+
+      if (ctx.measureText(testLine).width <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+        currentLine = word;
+
+        if (lines.length >= maxLines - 1) {
+          const remainingWords = words.slice(i).join(' ');
+          lines.push(this.truncateText(ctx, remainingWords, maxWidth));
+          return lines;
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
   }
 
   /**

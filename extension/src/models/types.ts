@@ -14,6 +14,7 @@ export interface StorageState {
   userGoal: string;
   installId: string;
   cachedResult?: ComparisonResult | null;
+  lastResult?: ComparisonResult | null;
   apiBaseUrl?: string;
 }
 

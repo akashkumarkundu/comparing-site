@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import type { ComparisonResult, PageSnapshot } from '../models/types';
 import { StorageService, DEFAULT_API_BASE_URL } from '../storage/StorageService';
 import { BackendService } from '../services/BackendService';
@@ -40,6 +40,54 @@ export const ResultsApp: React.FC = () => {
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [imageCopied, setImageCopied] = useState<boolean>(false);
   const [downloadingImg, setDownloadingImg] = useState<boolean>(false);
+  const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+
+  const sanitizedMissingInformation = useMemo(() => {
+    if (!result || !result.missingInformation) return [];
+    return result.missingInformation
+      .map((m) => {
+        const activeFields = (m.fields || []).filter((fieldName) => {
+          const normField = fieldName
+            .replace(/\s*\([^)]*\)/g, '')
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toLowerCase();
+          if (!normField) return true;
+
+          // Check if any criterion for this item has a known, non-"Not stated" value
+          const isStated = (result.criteria || []).some((c) => {
+            const normCrit = c.name
+              .replace(/\s*\([^)]*\)/g, '')
+              .replace(/[^a-zA-Z0-9]/g, '')
+              .toLowerCase();
+            const isMatch =
+              normCrit === normField ||
+              normCrit.includes(normField) ||
+              normField.includes(normCrit);
+            if (!isMatch) return false;
+
+            const valObj = (c.values || []).find((v) => v.itemId === m.itemId);
+            if (!valObj || !valObj.value) return false;
+            const val = valObj.value.trim().toLowerCase();
+            return (
+              val !== '' &&
+              val !== 'not stated' &&
+              val !== 'n/a' &&
+              val !== 'none' &&
+              val !== 'undefined' &&
+              val !== 'null'
+            );
+          });
+
+          return !isStated;
+        });
+
+        return {
+          ...m,
+          fields: activeFields,
+        };
+      })
+      .filter((m) => m.fields.length > 0);
+  }, [result]);
 
   useEffect(() => {
     runComparison(false);
@@ -53,22 +101,28 @@ export const ResultsApp: React.FC = () => {
       setLoadingStep('Retrieving selected pages from local storage...');
 
       const state = await StorageService.getState();
+      const savedResult = state.cachedResult || state.lastResult;
       setPages(state.pages);
       setUserGoal(state.userGoal);
       setBackendUrl(state.apiBaseUrl || DEFAULT_API_BASE_URL);
       setCustomUrlInput(state.apiBaseUrl || DEFAULT_API_BASE_URL);
 
-      if (state.pages.length < StorageService.MIN_PAGES) {
-        setError(
-          `At least ${StorageService.MIN_PAGES} pages are required to generate a comparison. Please open tabs and add pages using the Compare Anything extension.`
-        );
+      // If already cached/saved and not forced refresh, load cached result immediately
+      if (!forceRefresh && savedResult) {
+        setResult(savedResult);
         setLoading(false);
         return;
       }
 
-      // If already cached and not forced refresh, load cached result
-      if (!forceRefresh && state.cachedResult) {
-        setResult(state.cachedResult);
+      if (state.pages.length < StorageService.MIN_PAGES) {
+        if (savedResult) {
+          setResult(savedResult);
+          setLoading(false);
+          return;
+        }
+        setError(
+          `At least ${StorageService.MIN_PAGES} pages are required to generate a comparison. Please open tabs and add pages using the Compare Anything extension.`
+        );
         setLoading(false);
         return;
       }
@@ -81,10 +135,22 @@ export const ResultsApp: React.FC = () => {
       });
 
       setResult(response);
+      setOfflineNotice(null);
       await StorageService.setCachedResult(response);
     } catch (err: any) {
       console.error('Comparison error:', err);
-      setError(err.message || 'Failed to generate comparison. Please check that the backend server is running.');
+      // If we have a saved or cached result, fall back to it so the table is never lost!
+      const state = await StorageService.getState().catch(() => null);
+      const fallbackResult = result || state?.cachedResult || state?.lastResult;
+      if (fallbackResult) {
+        setResult(fallbackResult);
+        setOfflineNotice(
+          `Backend server is offline (${backendUrl || DEFAULT_API_BASE_URL}). Showing your saved comparison table.`
+        );
+        setError(null);
+      } else {
+        setError(err.message || 'Failed to generate comparison. Please check that the backend server is running.');
+      }
     } finally {
       setLoading(false);
     }
@@ -293,13 +359,13 @@ export const ResultsApp: React.FC = () => {
     );
   }
 
-  if (error || !result) {
+  if (!result) {
     return (
       <div className="results-page">
         <div className="state-container">
           <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: 16 }} />
           <h2 className="state-title">Comparison Unavailable</h2>
-          <p className="state-desc">{error || 'Unknown error occurred.'}</p>
+          <p className="state-desc">{error || 'No comparison data found. Please make sure the backend server is running and add pages to compare.'}</p>
 
           <div className="server-status-pill">
             <span className="dot dot-offline"></span>
@@ -359,6 +425,24 @@ export const ResultsApp: React.FC = () => {
 
   return (
     <div className="results-page">
+      {offlineNotice && (
+        <div className="offline-notice-banner">
+          <div className="offline-notice-content">
+            <AlertTriangle size={18} color="#d97706" />
+            <span>{offlineNotice}</span>
+          </div>
+          <div className="offline-notice-actions">
+            <button className="btn-outline-warning btn-sm" onClick={handleAutoDetect} disabled={detecting}>
+              <RotateCcw size={12} className={detecting ? 'spin' : ''} />
+              {detecting ? 'Detecting...' : 'Reconnect Server'}
+            </button>
+            <button className="offline-notice-close" onClick={() => setOfflineNotice(null)} title="Dismiss">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="results-header">
         <div className="header-top-row">
@@ -601,18 +685,18 @@ export const ResultsApp: React.FC = () => {
           </div>
         )}
 
-        {result.missingInformation.length > 0 && (
+        {sanitizedMissingInformation.length > 0 && (
           <div className="info-box">
             <h3>
               <HelpCircle size={16} color="#f59e0b" />
               Missing Information (Not Stated on Source)
             </h3>
             <ul className="bullet-list">
-              {result.missingInformation.map((m, idx) => {
+              {sanitizedMissingInformation.map((m, idx) => {
                 const item = result.items.find((it) => it.id === m.itemId);
                 return (
                   <li key={idx} style={{ flexDirection: 'column', gap: 4 }}>
-                    <strong style={{ color: '#e2e8f0' }}>{item ? item.displayName : m.itemId}:</strong>
+                    <strong style={{ color: 'var(--text-primary)' }}>{item ? item.displayName : m.itemId}:</strong>
                     <div className="missing-tag-group">
                       {m.fields.map((f, fIdx) => (
                         <span key={fIdx} className="missing-tag">
@@ -630,7 +714,7 @@ export const ResultsApp: React.FC = () => {
 
       {/* Source Links */}
       <section className="sources-card">
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Verified Web Sources</h3>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Verified Web Sources</h3>
         <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
           This comparison was generated strictly using facts extracted from these webpages:
         </p>

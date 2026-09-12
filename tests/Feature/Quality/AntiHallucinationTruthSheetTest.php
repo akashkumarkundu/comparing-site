@@ -157,3 +157,55 @@ test('Section 20 Rule 12: System Prompt enforces untrusted DATA defense against 
     expect($systemPrompt)->toContain('Never use your general product or outside knowledge to fill missing facts');
     expect($systemPrompt)->toContain('If information is unavailable, return "Not stated"');
 });
+
+test('Anti-hallucination sanitization: missingInformation strips fields that already have a stated value in criteria', function (): void {
+    $result = ComparisonResultDTO::fromArray([
+        'comparisonTitle' => 'Tecno Camon 50 vs OPPO A6s Pro',
+        'comparisonType' => 'Smartphone',
+        'goal' => 'General comparison',
+        'items' => [
+            ['id' => 'p1', 'displayName' => 'Tecno Camon 50', 'shortDescription' => ''],
+            ['id' => 'p2', 'displayName' => 'OPPO A6s Pro', 'shortDescription' => ''],
+        ],
+        'criteria' => [
+            [
+                'name' => 'Weight (g)',
+                'importance' => 'medium',
+                'values' => [
+                    ['itemId' => 'p1', 'value' => 'Not stated', 'confidence' => 'high'],
+                    ['itemId' => 'p2', 'value' => '190', 'confidence' => 'high'],
+                ],
+                'winnerItemIds' => ['p2'],
+            ],
+            [
+                'name' => 'IP Rating',
+                'importance' => 'low',
+                'values' => [
+                    ['itemId' => 'p1', 'value' => 'Not stated', 'confidence' => 'high'],
+                    ['itemId' => 'p2', 'value' => 'Not stated', 'confidence' => 'high'],
+                ],
+                'winnerItemIds' => [],
+            ],
+        ],
+        'bestOverall' => [
+            'itemId' => 'p2',
+            'reason' => 'Better overall value.',
+        ],
+        'bestFor' => [],
+        'keyDifferences' => [],
+        'missingInformation' => [
+            ['itemId' => 'p1', 'fields' => ['Weight', 'IP Rating']],
+            ['itemId' => 'p2', 'fields' => ['Weight', 'IP Rating']], // Weight should be stripped because p2 has '190'
+        ],
+    ]);
+
+    // p1 has Weight: 'Not stated', so Weight stays
+    $p1Missing = collect($result->missingInformation)->firstWhere('itemId', 'p1');
+    expect($p1Missing['fields'])->toContain('Weight');
+    expect($p1Missing['fields'])->toContain('IP Rating');
+
+    // p2 has Weight: '190', so Weight MUST be removed, only IP Rating stays
+    $p2Missing = collect($result->missingInformation)->firstWhere('itemId', 'p2');
+    expect($p2Missing['fields'])->not->toContain('Weight');
+    expect($p2Missing['fields'])->toContain('IP Rating');
+});

@@ -111,10 +111,10 @@ export function extractPageInTabDOM(): {
   // 5. Structured Data Collection
   const structuredSections: string[] = [];
 
-  // 5a. Tables (e.g. specification tables) - extract up to 60 rows
+  // 5a. Tables (e.g. specification tables) - extract up to 150 rows to capture full tech specs
   const tables = clone.querySelectorAll('table');
   tables.forEach((table) => {
-    const rows = Array.from(table.querySelectorAll('tr')).slice(0, 60);
+    const rows = Array.from(table.querySelectorAll('tr')).slice(0, 150);
     const tableLines: string[] = [];
     rows.forEach((tr) => {
       const cells = Array.from(tr.querySelectorAll('th, td'))
@@ -122,6 +122,9 @@ export function extractPageInTabDOM(): {
         .filter(Boolean);
       if (cells.length >= 2) {
         tableLines.push(`${cells[0]}: ${cells.slice(1).join(' | ')}`);
+      } else if (cells.length === 1 && cells[0].length < 80) {
+        // Section header inside table, e.g. "Physical specification", "Battery", "Camera"
+        tableLines.push(`\n[${cells[0]}]`);
       }
     });
     if (tableLines.length > 0) {
@@ -257,6 +260,32 @@ export function extractPageInTabDOM(): {
     }
   });
 
+  // 5h. Dedicated Physical Specifications & Hardware Highlights (Weight, Dimensions, IP Rating, Battery)
+  const physicalSpecs: string[] = [];
+  const candidateElements = clone.querySelectorAll('tr, li, dl, div, p, span');
+  candidateElements.forEach((el) => {
+    if (el.children.length > 3) return;
+    const txt = el.textContent?.replace(/\s+/g, ' ').trim() || '';
+    if (txt.length >= 3 && txt.length <= 120) {
+      const lower = txt.toLowerCase();
+      const isWeight = lower.includes('weight') && (/\d+\s*(?:g|kg|lbs|grams?|ounces?)/i.test(txt) || lower.includes(':') || lower.includes('—'));
+      const isDimension = (lower.includes('dimension') || lower.includes('size')) && /\d+(?:\.\d+)?\s*(?:mm|cm|inches|inch|"|x)/i.test(txt);
+      const isIpRating = (lower.includes('ip') || lower.includes('water') || lower.includes('dust') || lower.includes('protection') || lower.includes('rating')) && /ip[0-9xX]{2}/i.test(txt);
+      const isBattery = (lower.includes('battery') || lower.includes('charging')) && (/\d{3,5}\s*mah/i.test(lower) || /\d+w/i.test(lower));
+
+      if (isWeight || isDimension || isIpRating || isBattery) {
+        if (!physicalSpecs.includes(txt)) {
+          physicalSpecs.push(txt);
+        }
+      }
+    }
+  });
+
+  if (physicalSpecs.length > 0) {
+    const uniquePhysical = Array.from(new Set(physicalSpecs)).slice(0, 20);
+    structuredSections.push('[PHYSICAL SPECIFICATIONS & BUILD HIGHLIGHTS]\n• ' + uniquePhysical.join('\n• '));
+  }
+
   // 6. Headings Hierarchy
   const headingList: string[] = [];
   clone.querySelectorAll('h1, h2, h3, h4').forEach((h) => {
@@ -359,9 +388,9 @@ export function extractPageInTabDOM(): {
     finalImportantText += `[ADDITIONAL DETAILS]\n${uniqueBody.join('\n\n')}\n`;
   }
 
-  // Cap at ~10,000 characters (within backend 15,000 limit)
-  if (finalImportantText.length > 10000) {
-    finalImportantText = finalImportantText.substring(0, 10000) + '... [truncated]';
+  // Cap at ~14,000 characters (within backend 15,000 limit)
+  if (finalImportantText.length > 14000) {
+    finalImportantText = finalImportantText.substring(0, 14000) + '... [truncated]';
   }
 
   return {

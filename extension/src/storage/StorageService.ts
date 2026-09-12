@@ -5,19 +5,24 @@ const STORAGE_KEYS = {
   USER_GOAL: 'ca_user_goal',
   INSTALL_ID: 'ca_install_id',
   CACHED_RESULT: 'ca_cached_result',
+  LAST_RESULT: 'ca_last_result',
   API_BASE_URL: 'ca_api_base_url',
 };
 
 const MAX_PAGES = 4;
 const MIN_PAGES = 2;
-export const DEFAULT_API_BASE_URL = 'http://comparing-site.test';
+export const DEFAULT_API_BASE_URL =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
+  'http://comparing-site.test';
+
 export const CANDIDATE_API_BASE_URLS = [
+  DEFAULT_API_BASE_URL,
   'http://comparing-site.test',
   'http://127.0.0.1:8000',
   'http://localhost:8000',
   'http://localhost',
   'https://comparing-site.test',
-];
+].filter((url, index, self) => self.indexOf(url) === index);
 
 function generateGuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -40,6 +45,7 @@ export class StorageService {
         STORAGE_KEYS.USER_GOAL,
         STORAGE_KEYS.INSTALL_ID,
         STORAGE_KEYS.CACHED_RESULT,
+        STORAGE_KEYS.LAST_RESULT,
         STORAGE_KEYS.API_BASE_URL,
       ]);
 
@@ -49,11 +55,15 @@ export class StorageService {
         await chrome.storage.local.set({ [STORAGE_KEYS.INSTALL_ID]: installId });
       }
 
+      const lastResult = data[STORAGE_KEYS.LAST_RESULT] || null;
+      const cachedResult = data[STORAGE_KEYS.CACHED_RESULT] || lastResult || null;
+
       return {
         pages: data[STORAGE_KEYS.PAGES] || [],
         userGoal: data[STORAGE_KEYS.USER_GOAL] || '',
         installId,
-        cachedResult: data[STORAGE_KEYS.CACHED_RESULT] || null,
+        cachedResult,
+        lastResult,
         apiBaseUrl: data[STORAGE_KEYS.API_BASE_URL] || DEFAULT_API_BASE_URL,
       };
     } else {
@@ -65,12 +75,17 @@ export class StorageService {
       }
       const rawPages = localStorage.getItem(STORAGE_KEYS.PAGES);
       const rawResult = localStorage.getItem(STORAGE_KEYS.CACHED_RESULT);
+      const rawLastResult = localStorage.getItem(STORAGE_KEYS.LAST_RESULT);
+
+      const lastResult = rawLastResult ? JSON.parse(rawLastResult) : null;
+      const cachedResult = rawResult ? JSON.parse(rawResult) : lastResult;
 
       return {
         pages: rawPages ? JSON.parse(rawPages) : [],
         userGoal: localStorage.getItem(STORAGE_KEYS.USER_GOAL) || '',
         installId,
-        cachedResult: rawResult ? JSON.parse(rawResult) : null,
+        cachedResult,
+        lastResult,
         apiBaseUrl: localStorage.getItem(STORAGE_KEYS.API_BASE_URL) || DEFAULT_API_BASE_URL,
       };
     }
@@ -151,13 +166,17 @@ export class StorageService {
   static async setCachedResult(result: ComparisonResult | null): Promise<void> {
     if (isChromeStorageAvailable) {
       if (result) {
-        await chrome.storage.local.set({ [STORAGE_KEYS.CACHED_RESULT]: result });
+        await chrome.storage.local.set({
+          [STORAGE_KEYS.CACHED_RESULT]: result,
+          [STORAGE_KEYS.LAST_RESULT]: result,
+        });
       } else {
         await chrome.storage.local.remove([STORAGE_KEYS.CACHED_RESULT]);
       }
     } else {
       if (result) {
         localStorage.setItem(STORAGE_KEYS.CACHED_RESULT, JSON.stringify(result));
+        localStorage.setItem(STORAGE_KEYS.LAST_RESULT, JSON.stringify(result));
       } else {
         localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
       }
@@ -173,11 +192,13 @@ export class StorageService {
         STORAGE_KEYS.PAGES,
         STORAGE_KEYS.USER_GOAL,
         STORAGE_KEYS.CACHED_RESULT,
+        STORAGE_KEYS.LAST_RESULT,
       ]);
     } else {
       localStorage.removeItem(STORAGE_KEYS.PAGES);
       localStorage.removeItem(STORAGE_KEYS.USER_GOAL);
       localStorage.removeItem(STORAGE_KEYS.CACHED_RESULT);
+      localStorage.removeItem(STORAGE_KEYS.LAST_RESULT);
     }
   }
 

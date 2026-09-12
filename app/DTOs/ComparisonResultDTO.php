@@ -98,11 +98,15 @@ final readonly class ComparisonResultDTO
         $missingInformation = [];
         foreach ($rawMissing as $m) {
             if (is_array($m)) {
+                $itemId = (string) ($m['itemId'] ?? '');
                 $rawFields = is_array($m['fields'] ?? null) ? $m['fields'] : [];
-                $fields = array_values(array_filter(array_map('strval', $rawFields), static fn (string $f): bool => trim($f) !== ''));
+                $fields = array_values(array_filter(
+                    array_map('strval', $rawFields),
+                    static fn (string $f): bool => trim($f) !== '' && ! self::isFieldStated($f, $itemId, $criteria)
+                ));
                 if ($fields !== []) {
                     $missingInformation[] = [
-                        'itemId' => (string) ($m['itemId'] ?? ''),
+                        'itemId' => $itemId,
                         'fields' => $fields,
                     ];
                 }
@@ -138,5 +142,73 @@ final readonly class ComparisonResultDTO
             'keyDifferences' => $this->keyDifferences,
             'missingInformation' => $this->missingInformation,
         ];
+    }
+
+    /**
+     * Determine if a field name matches an already stated (non-'Not stated') criterion for an item.
+     *
+     * @param  array<int, array{name: string, importance: string, values: array<int, array{itemId: string, value: string, confidence: string}>, winnerItemIds: array<int, string>}>  $criteria
+     */
+    private static function isFieldStated(string $fieldName, string $itemId, array $criteria): bool
+    {
+        $cleanField = strtolower(trim(preg_replace('/\s*\([^)]*\)/', '', $fieldName) ?? ''));
+        $normField = preg_replace('/[^a-z0-9]/', '', $cleanField) ?? '';
+        if ($normField === '') {
+            return false;
+        }
+
+        $fieldWords = array_values(array_filter(
+            preg_split('/[\s\-_,\/]+/', $cleanField) ?: [],
+            static fn (string $w): bool => strlen($w) >= 2
+        ));
+
+        foreach ($criteria as $criterion) {
+            $critName = (string) ($criterion['name'] ?? '');
+            $cleanCritName = strtolower(trim(preg_replace('/\s*\([^)]*\)/', '', $critName) ?? ''));
+            $normCrit = preg_replace('/[^a-z0-9]/', '', $cleanCritName) ?? '';
+
+            // Find value for this itemId
+            $valObj = collect($criterion['values'] ?? [])->firstWhere('itemId', $itemId);
+            if (! $valObj) {
+                continue;
+            }
+
+            $val = trim((string) ($valObj['value'] ?? ''));
+            $valLower = strtolower($val);
+            if ($val === '' || $valLower === 'not stated' || $valLower === 'n/a' || $valLower === 'none' || $valLower === 'undefined' || $valLower === 'null') {
+                continue;
+            }
+
+            // If the value is genuinely stated (e.g. "190", "190g", "1.63 kg"):
+            // 1. Exact normalized match (e.g., "weight" === "weight", "iprating" === "iprating")
+            if ($normCrit !== '' && ($normField === $normCrit || str_contains($normCrit, $normField) || str_contains($normField, $normCrit))) {
+                return true;
+            }
+
+            // 2. Word matches
+            $critWords = array_values(array_filter(
+                preg_split('/[\s\-_,\/]+/', $cleanCritName) ?: [],
+                static fn (string $w): bool => strlen($w) >= 2
+            ));
+
+            if ($fieldWords !== [] && $critWords !== []) {
+                if (count($fieldWords) === 1 && in_array($fieldWords[0], $critWords, true)) {
+                    return true;
+                }
+
+                $allMatched = true;
+                foreach ($fieldWords as $fw) {
+                    if (! in_array($fw, $critWords, true)) {
+                        $allMatched = false;
+                        break;
+                    }
+                }
+                if ($allMatched) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
