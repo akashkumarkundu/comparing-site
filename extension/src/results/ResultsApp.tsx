@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { ShareImageGenerator } from '../utils/ShareImageGenerator';
+import { OfflineComparisonService } from '../services/OfflineComparisonService';
 import './results.css';
 
 const SAMPLE_DEMO_RESULT: ComparisonResult = {
@@ -306,6 +307,18 @@ export const ResultsApp: React.FC = () => {
           `Backend server is offline (${backendUrl || DEFAULT_API_BASE_URL}). Showing your saved comparison table.`
         );
         setError(null);
+      } else if (state && state.pages.length >= StorageService.MIN_PAGES) {
+        try {
+          const offlineComparison = OfflineComparisonService.generate(state.pages, state.userGoal);
+          setResult(offlineComparison);
+          await StorageService.setCachedResult(offlineComparison);
+          setOfflineNotice(
+            `Standalone Browser Engine: Live backend is offline on this device (${backendUrl || DEFAULT_API_BASE_URL}). Generated comparison locally from extracted page content.`
+          );
+          setError(null);
+        } catch (offlineErr: any) {
+          setError(err.message || 'Failed to generate comparison. Please check that the backend server is running.');
+        }
       } else {
         setError(err.message || 'Failed to generate comparison. Please check that the backend server is running.');
       }
