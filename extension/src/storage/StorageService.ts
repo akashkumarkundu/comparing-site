@@ -13,10 +13,11 @@ const MAX_PAGES = 4;
 const MIN_PAGES = 2;
 export const DEFAULT_API_BASE_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) ||
-  'http://comparing-site.test';
+  'https://polar-into-semiconductor-britney.trycloudflare.com';
 
 export const CANDIDATE_API_BASE_URLS = [
   DEFAULT_API_BASE_URL,
+  'https://polar-into-semiconductor-britney.trycloudflare.com',
   'http://comparing-site.test',
   'http://127.0.0.1:8000',
   'http://localhost:8000',
