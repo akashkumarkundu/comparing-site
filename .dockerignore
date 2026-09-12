@@ -1,0 +1,10 @@
+/vendor
+/node_modules
+/extension/node_modules
+.git
+.env
+.env.*
+!.env.example
+.phpunit.cache
+*.log
+*.exe
