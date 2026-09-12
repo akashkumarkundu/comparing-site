@@ -21,6 +21,149 @@ import {
 import { ShareImageGenerator } from '../utils/ShareImageGenerator';
 import './results.css';
 
+const SAMPLE_DEMO_RESULT: ComparisonResult = {
+  comparisonTitle: 'ASUS Vivobook 15 vs Lenovo IdeaPad 5',
+  comparisonType: 'Laptop',
+  goal: 'Best laptop for programming under Tk 80,000',
+  items: [
+    {
+      id: 'demo-p1',
+      displayName: 'ASUS Vivobook 15',
+      shortDescription: 'Reliable 15.6" everyday workhorse laptop with Core i5 and 16GB RAM.',
+    },
+    {
+      id: 'demo-p2',
+      displayName: 'Lenovo IdeaPad 5',
+      shortDescription: 'High-performance 8-core Ryzen 7 lightweight laptop for programming and multitasking.',
+    },
+  ],
+  criteria: [
+    {
+      name: 'Price',
+      importance: 'high',
+      values: [
+        { itemId: 'demo-p1', value: 'Tk 74,500', confidence: 'high' },
+        { itemId: 'demo-p2', value: 'Tk 78,000', confidence: 'high' },
+      ],
+      winnerItemIds: ['demo-p1'],
+    },
+    {
+      name: 'Processor / CPU',
+      importance: 'high',
+      values: [
+        { itemId: 'demo-p1', value: 'Intel Core i5-1335U (10 Cores, up to 4.6 GHz)', confidence: 'high' },
+        { itemId: 'demo-p2', value: 'AMD Ryzen 7 7730U (8 Cores, 16 Threads, up to 4.5 GHz)', confidence: 'high' },
+      ],
+      winnerItemIds: ['demo-p2'],
+    },
+    {
+      name: 'RAM / Memory',
+      importance: 'high',
+      values: [
+        { itemId: 'demo-p1', value: '16 GB DDR4', confidence: 'high' },
+        { itemId: 'demo-p2', value: '16 GB DDR4', confidence: 'high' },
+      ],
+      winnerItemIds: [],
+    },
+    {
+      name: 'Storage / SSD',
+      importance: 'high',
+      values: [
+        { itemId: 'demo-p1', value: '512 GB NVMe M.2 SSD', confidence: 'high' },
+        { itemId: 'demo-p2', value: '512 GB NVMe M.2 SSD', confidence: 'high' },
+      ],
+      winnerItemIds: [],
+    },
+    {
+      name: 'Display / Screen',
+      importance: 'medium',
+      values: [
+        { itemId: 'demo-p1', value: '15.6" Full HD (1920x1080) Anti-glare', confidence: 'high' },
+        { itemId: 'demo-p2', value: '15.6" Full HD IPS (1920x1080) 300 nits', confidence: 'high' },
+      ],
+      winnerItemIds: ['demo-p2'],
+    },
+    {
+      name: 'Weight (kg)',
+      importance: 'medium',
+      values: [
+        { itemId: 'demo-p1', value: 'Not stated', confidence: 'high' },
+        { itemId: 'demo-p2', value: '1.63 kg', confidence: 'high' },
+      ],
+      winnerItemIds: ['demo-p2'],
+    },
+    {
+      name: 'Battery / Charging',
+      importance: 'medium',
+      values: [
+        { itemId: 'demo-p1', value: '42 Wh (45W Fast Charging)', confidence: 'high' },
+        { itemId: 'demo-p2', value: '57 Wh (65W USB-C Charging)', confidence: 'high' },
+      ],
+      winnerItemIds: ['demo-p2'],
+    },
+    {
+      name: 'Warranty',
+      importance: 'medium',
+      values: [
+        { itemId: 'demo-p1', value: '2 years international', confidence: 'high' },
+        { itemId: 'demo-p2', value: '2 years official', confidence: 'high' },
+      ],
+      winnerItemIds: [],
+    },
+  ],
+  bestOverall: {
+    itemId: 'demo-p2',
+    reason: 'Offers the strongest 8-core/16-thread multi-core processor (Ryzen 7 7730U), larger 57Wh battery, and verified lightweight 1.63 kg chassis while staying within your stated Tk 80,000 budget.',
+  },
+  bestFor: [
+    {
+      label: 'Highest Performance / Programming',
+      itemId: 'demo-p2',
+      reason: 'Ryzen 7 7730U delivers superior multi-threaded code compilation and IDE responsiveness compared to the Core i5.',
+    },
+    {
+      label: 'Lowest Price',
+      itemId: 'demo-p1',
+      reason: 'Lowest listed price at Tk 74,500, saving Tk 3,500 while matching the 16GB RAM and 512GB SSD capacity.',
+    },
+  ],
+  keyDifferences: [
+    'Lenovo IdeaPad 5 features an 8-core, 16-thread Ryzen 7 processor with higher multi-threaded performance than the 10-core Core i5.',
+    'Lenovo provides a larger 57Wh battery with faster 65W USB-C charging compared to ASUS 42Wh.',
+    'ASUS Vivobook 15 is Tk 3,500 more affordable with identical 16GB RAM and 512GB SSD storage.',
+    'ASUS webpage does not specify the product weight, whereas Lenovo confirms a 1.63 kg lightweight form factor.',
+  ],
+  missingInformation: [
+    {
+      itemId: 'demo-p1',
+      fields: ['Weight', 'Color gamut'],
+    },
+  ],
+};
+
+const SAMPLE_DEMO_PAGES: PageSnapshot[] = [
+  {
+    id: 'demo-p1',
+    url: 'https://www.startech.com.bd/asus-vivobook-15-x1504va-core-i5-13th-gen-laptop',
+    domain: 'startech.com.bd',
+    title: 'ASUS Vivobook 15 X1504VA Core i5 13th Gen 16GB RAM Laptop',
+    description: 'ASUS Vivobook 15 with Core i5-1335U, 16GB DDR4, 512GB SSD at best price in BD.',
+    structuredData: '{"name": "ASUS Vivobook 15", "price": "74500 BDT"}',
+    importantText: 'Price: Tk 74,500, RAM: 16 GB, Storage: 512 GB, Display: 15.6 FHD, Warranty: 2 years.',
+    capturedAt: new Date().toISOString(),
+  },
+  {
+    id: 'demo-p2',
+    url: 'https://www.ryans.com/lenovo-ideapad-5-15abr8-amd-ryzen-7-7730u-16gb-512gb-laptop',
+    domain: 'ryans.com',
+    title: 'Lenovo IdeaPad 5 15ABR8 AMD Ryzen 7 7730U 16GB RAM 512GB SSD Laptop',
+    description: 'Lenovo IdeaPad 5 with Ryzen 7 7730U, 16GB RAM, 512GB SSD, 1.63 kg weight.',
+    structuredData: '{"name": "Lenovo IdeaPad 5", "price": "78000 BDT"}',
+    importantText: 'Price: Tk 78,000, Processor: Ryzen 7 7730U, RAM: 16 GB, Weight: 1.63 kg, Battery: 57 Wh.',
+    capturedAt: new Date().toISOString(),
+  },
+];
+
 export const ResultsApp: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingStep, setLoadingStep] = useState<string>('Preparing comparison...');
@@ -41,6 +184,7 @@ export const ResultsApp: React.FC = () => {
   const [imageCopied, setImageCopied] = useState<boolean>(false);
   const [downloadingImg, setDownloadingImg] = useState<boolean>(false);
   const [offlineNotice, setOfflineNotice] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
   const sanitizedMissingInformation = useMemo(() => {
     if (!result || !result.missingInformation) return [];
@@ -90,8 +234,22 @@ export const ResultsApp: React.FC = () => {
   }, [result]);
 
   useEffect(() => {
-    runComparison(false);
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('demo') === '1') {
+      loadDemoData();
+    } else {
+      runComparison(false);
+    }
   }, []);
+
+  const loadDemoData = () => {
+    setIsDemoMode(true);
+    setResult(SAMPLE_DEMO_RESULT);
+    setPages(SAMPLE_DEMO_PAGES);
+    setUserGoal(SAMPLE_DEMO_RESULT.goal || '');
+    setLoading(false);
+    setError(null);
+  };
 
   const runComparison = async (forceRefresh = false) => {
     try {
@@ -379,9 +537,17 @@ export const ResultsApp: React.FC = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>
             <button
               className="btn btn-primary"
+              style={{ background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', border: 'none', boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)' }}
+              onClick={loadDemoData}
+            >
+              <Sparkles size={14} />
+              <span>View Sample 2-Page Comparison (Demo Mode)</span>
+            </button>
+            <button
+              className="btn"
               onClick={handleAutoDetect}
               disabled={detecting}
             >
@@ -425,7 +591,41 @@ export const ResultsApp: React.FC = () => {
 
   return (
     <div className="results-page">
-      {offlineNotice && (
+      {isDemoMode && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.15), rgba(124, 58, 237, 0.15))',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            borderRadius: '8px',
+            padding: '10px 16px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '13px',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={16} color="#818cf8" />
+            <span>
+              <strong>Sample 2-Page Comparison (Demo Mode):</strong> Comparing ASUS Vivobook 15 (Star Tech) vs Lenovo IdeaPad 5 (Ryans). All buttons, CSV export, and image sharing are fully interactive.
+            </span>
+          </div>
+          <button
+            className="btn"
+            style={{ padding: '3px 10px', fontSize: '11px', whiteSpace: 'nowrap' }}
+            onClick={() => {
+              setIsDemoMode(false);
+              runComparison(true);
+            }}
+          >
+            Connect Live Backend
+          </button>
+        </div>
+      )}
+
+      {offlineNotice && !isDemoMode && (
         <div className="offline-notice-banner">
           <div className="offline-notice-content">
             <AlertTriangle size={18} color="#d97706" />

@@ -462,7 +462,7 @@ export const App: React.FC = () => {
             : 'ADD 2–4 PAGES TO COMPARE'}
         </button>
 
-        {pages.length > 0 && (
+        {pages.length > 0 ? (
           <div className="clear-btn-row">
             <button
               className="btn-danger-text"
@@ -470,6 +470,33 @@ export const App: React.FC = () => {
               onClick={handleClearComparison}
             >
               Clear Comparison
+            </button>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', marginTop: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+                  chrome.tabs.create({ url: chrome.runtime.getURL('results.html?demo=1') });
+                } else {
+                  window.open('/results.html?demo=1', '_blank');
+                }
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#60a5fa',
+                fontSize: '11px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+              }}
+            >
+              <Sparkles size={12} />
+              <span>View Sample 2-Page Comparison (Demo)</span>
             </button>
           </div>
         )}
